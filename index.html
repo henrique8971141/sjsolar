@@ -12,8 +12,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js para BI -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2pdf.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas + jsPDF (expõem window.html2canvas e window.jspdf.jsPDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -301,7 +302,7 @@
                 <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider">Gestão de Clientes</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <input type="text" id="cli-nome" placeholder="Nome Completo *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <input type="text" id="cli-telefone" placeholder="Telefone / WhatsApp *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-telefone" placeholder="Telefone / WhatsApp" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <input type="email" id="cli-email" placeholder="E-mail" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <input type="text" id="cli-endereco" placeholder="Endereço de Instalação" class="md:col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <div class="grid grid-cols-3 gap-2">
@@ -309,8 +310,9 @@
                         <input type="text" id="cli-estado" maxlength="2" placeholder="UF" class="px-3 py-2 rounded-lg border border-slate-200 text-sm text-center uppercase focus:outline-none focus:ring-2 focus:ring-amber-500">
                     </div>
                 </div>
-                <div class="flex justify-end">
-                    <button onclick="saveQuickCliente()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar Novo Cliente</button>
+                <div class="flex justify-end gap-2">
+                    <button id="btn-cancel-cliente" onclick="cancelEditCliente()" class="hidden px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-300 transition-colors">Cancelar</button>
+                    <button id="btn-save-cliente" onclick="saveQuickCliente()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar Novo Cliente</button>
                 </div>
             </div>
 
@@ -411,103 +413,199 @@
             </div>
         </section>
 
-    </main>
+        <!-- ABA 5: EDITOR DE ORÇAMENTO (PÁGINA PRÓPRIA, NÃO MODAL) -->
+        <section id="orcamento-editor-tab" class="tab-content hidden space-y-6">
 
-    <!-- EXPORTAÇÃO (3 PÁGINAS A4 FIXAS COM O SEU MODELO EXATO DE TABELA) -->
-    <!-- CARD / MODAL DE CRIAR / EDITAR ORÇAMENTO -->
-    <div id="orcamento-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/60 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-3xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-
-            <!-- Cabeçalho do card -->
-            <div class="flex items-center justify-between gap-4 px-6 py-4 bg-slate-900 border-b border-slate-800">
-                <h3 id="modal-title" class="text-white font-bold text-base sm:text-lg flex items-center gap-2">
-                    <i class="fa-solid fa-file-invoice-dollar text-amber-400"></i> Configurar Orçamento
-                </h3>
-                <button type="button" onclick="closeOrcamentoModal()" class="text-slate-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="closeOrcamentoEditor()" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors shadow-xs">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 id="editor-title" class="text-xl font-black text-slate-900 font-brand">Novo Orçamento</h2>
+                        <p class="text-xs text-slate-400 font-semibold" id="editor-subtitle">Preencha os dados da proposta</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeOrcamentoEditor()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 transition-colors">Cancelar</button>
+                    <button type="button" onclick="handleFormSubmit(event)" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar Orçamento
+                    </button>
+                </div>
             </div>
 
-            <form id="orcamento-form" onsubmit="handleFormSubmit(event)" class="flex flex-col flex-1 overflow-hidden">
-                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            <form id="orcamento-form" onsubmit="handleFormSubmit(event)" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    <input type="hidden" id="form-orcamento-id">
+                <input type="hidden" id="form-orcamento-id">
+
+                <!-- Coluna principal -->
+                <div class="lg:col-span-2 space-y-6">
 
                     <!-- Cliente e tipo -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente</label>
-                            <select id="form-cliente-id" required class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm"></select>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-user mr-1 text-amber-500"></i> Cliente e Serviço</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente</label>
+                                <div class="flex gap-2">
+                                    <select id="form-cliente-id" required class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm"></select>
+                                    <button type="button" onclick="openInlineClienteForm()" title="Cadastrar novo cliente" class="shrink-0 px-3 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
+                                        <i class="fa-solid fa-user-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Orçamento</label>
+                                <select id="form-tipo-orcamento" required class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                    <option value="Equipamento Tradicional">Equipamento Tradicional</option>
+                                    <option value="Equipamento a Vácuo">Equipamento a Vácuo</option>
+                                    <option value="Energia Fotovoltaica On-Grid">Energia Fotovoltaica On-Grid</option>
+                                    <option value="Energia Fotovoltaica Off-Grid">Energia Fotovoltaica Off-Grid</option>
+                                    <option value="Aquecedor a Gás">Aquecedor a Gás</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Orçamento</label>
-                            <select id="form-tipo-orcamento" required class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
-                                <option value="Equipamento Tradicional">Equipamento Tradicional</option>
-                                <option value="Equipamento a Vácuo">Equipamento a Vácuo</option>
-                                <option value="Energia Fotovoltaica On-Grid">Energia Fotovoltaica On-Grid</option>
-                                <option value="Energia Fotovoltaica Off-Grid">Energia Fotovoltaica Off-Grid</option>
-                                <option value="Aquecedor a Gás">Aquecedor a Gás</option>
-                                <option value="Outro">Outro</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Descrição detalhada do serviço</label>
-                        <input type="text" id="form-tipo-detalhado" placeholder="Ex: Aquecedor Solar com Reservatório 400L" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        <!-- Formulário inline de novo cliente (oculto por padrão) -->
+                        <div id="inline-cliente-form" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase text-slate-600">Novo cliente rápido</span>
+                                <button type="button" onclick="closeInlineClienteForm()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <input type="text" id="inline-cli-nome" placeholder="Nome completo *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                                <input type="text" id="inline-cli-telefone" placeholder="Telefone / WhatsApp" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                                <input type="email" id="inline-cli-email" placeholder="E-mail" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                                <input type="text" id="inline-cli-endereco" placeholder="Endereço" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                                <input type="text" id="inline-cli-cidade" placeholder="Cidade" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                                <input type="text" id="inline-cli-estado" maxlength="2" placeholder="UF" class="px-3 py-2 rounded-lg border border-slate-200 text-sm uppercase">
+                            </div>
+                            <button type="button" onclick="saveInlineCliente()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar e Selecionar</button>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Descrição detalhada do serviço</label>
+                            <input type="text" id="form-tipo-detalhado" placeholder="Ex: Aquecedor Solar com Reservatório 400L" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
                     </div>
 
                     <!-- Equipamentos dinâmicos -->
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="block text-xs font-bold uppercase text-slate-500">Equipamentos / Itens da Proposta</label>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-boxes-stacked mr-1 text-amber-500"></i> Equipamentos / Itens da Proposta</h3>
                             <button type="button" onclick="addEquipmentRow(1, '')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">
                                 <i class="fa-solid fa-circle-plus"></i> Adicionar item
                             </button>
                         </div>
-                        <div id="equipments-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                        <div id="equipments-list-container" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
                     </div>
 
-                    <!-- Banhos e garantias -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Estimativa de banhos/dia</label>
-                            <input type="number" id="form-banhos" min="0" placeholder="0" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Garantia do equipamento</label>
-                            <input type="text" id="form-garantia-equip" placeholder="Ex: 3 anos" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Garantia da instalação</label>
-                            <input type="text" id="form-garantia-inst" placeholder="Ex: 1 ano" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
-                        </div>
-                    </div>
-
-                    <!-- Valores -->
-                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+                    <!-- Campo extra livre (antigo "banhos") e garantias -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-list-check mr-1 text-amber-500"></i> Campo Livre e Garantias</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor dos equipamentos</label>
-                                <input type="number" step="0.01" id="form-val-equip" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nome do campo</label>
+                                <input type="text" id="form-campo-extra-label" placeholder="Ex: Estimativa de banhos/dia" value="Estimativa de banhos/dia" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor da mão de obra</label>
-                                <input type="number" step="0.01" id="form-val-mao" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor do campo</label>
+                                <input type="text" id="form-campo-extra-valor" placeholder="Ex: 3 banhos, Residencial, etc." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Outros valores</label>
-                                <input type="number" step="0.01" id="form-val-outros" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Garantia do equipamento</label>
+                                <input type="text" id="form-garantia-equip" placeholder="Ex: 3 anos" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                             </div>
                         </div>
-                        <div class="flex items-center justify-between border-t border-slate-200 pt-3">
-                            <span class="text-xs font-bold uppercase text-slate-500">Valor total da proposta</span>
-                            <input type="text" id="form-val-total" readonly value="R$ 0,00" class="text-right font-black text-lg text-slate-900 bg-transparent border-none focus:outline-none w-40">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Garantia da instalação</label>
+                                <input type="text" id="form-garantia-inst" placeholder="Ex: 1 ano" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Validade -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Condições e observações -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-file-lines mr-1 text-amber-500"></i> Condições e Observações</h3>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Condições de pagamento</label>
+                            <textarea id="form-condicoes" rows="2" placeholder="Ex: 50% de entrada + 50% na entrega" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Observações</label>
+                            <textarea id="form-observacoes" rows="2" placeholder="Observações adicionais para o cliente" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna lateral: valores, status, validade -->
+                <div class="space-y-6">
+
+                    <!-- Valores -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-sack-dollar mr-1 text-amber-500"></i> Valores</h3>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor dos equipamentos</label>
+                            <input type="number" step="0.01" id="form-val-equip" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor da mão de obra</label>
+                            <input type="number" step="0.01" id="form-val-mao" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Outros valores</label>
+                            <input type="number" step="0.01" id="form-val-outros" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
+
+                        <div class="border-t border-slate-200 pt-4 space-y-1">
+                            <p class="text-xs font-bold uppercase text-slate-500">Subtotal (equip. + m.obra + outros)</p>
+                            <p id="form-subtotal-display" class="text-right font-bold text-slate-700">R$ 0,00</p>
+                        </div>
+
+                        <!-- Desconto (#11) -->
+                        <div class="border-t border-slate-200 pt-4">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Desconto (visível no orçamento)</label>
+                            <div class="flex gap-2">
+                                <input type="number" step="0.01" min="0" id="form-desconto-valor" oninput="updateFormTotal()" placeholder="0,00" class="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                                <select id="form-desconto-tipo" onchange="updateFormTotal()" class="px-2 py-2.5 rounded-lg border border-slate-200 text-sm bg-white">
+                                    <option value="valor">R$</option>
+                                    <option value="percentual">%</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Margem de lucro (#12) - interna, não aparece no PDF -->
+                        <div class="border-t border-slate-200 pt-4">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                                Margem de lucro <span class="normal-case font-semibold text-slate-400">(interna, não aparece no orçamento)</span>
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" step="0.01" min="0" id="form-margem-lucro" placeholder="0,00" class="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                                <span class="text-sm font-bold text-slate-500">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Arredondamento (#13) -->
+                        <div class="border-t border-slate-200 pt-4">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Arredondar valor final para</label>
+                            <div class="flex gap-2">
+                                <input type="number" step="0.01" min="0" id="form-arredondar-para" placeholder="Ex: 5000,00" class="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                                <button type="button" onclick="aplicarArredondamento()" class="shrink-0 px-3 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors">Aplicar</button>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">Ajusta "Outros valores" automaticamente para fechar o total desejado.</p>
+                        </div>
+
+                        <div class="flex items-center justify-between border-t border-slate-200 pt-4">
+                            <span class="text-xs font-bold uppercase text-slate-500">Total da proposta</span>
+                            <input type="text" id="form-val-total" readonly value="R$ 0,00" class="text-right font-black text-lg text-slate-900 bg-transparent border-none focus:outline-none w-32">
+                        </div>
+                    </div>
+
+                    <!-- Validade e código -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-calendar-days mr-1 text-amber-500"></i> Validade e Código</h3>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Validade da proposta</label>
                             <select id="form-validade-select" onchange="handleValidadeChange()" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
@@ -524,7 +622,8 @@
                     </div>
 
                     <!-- Status -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-flag mr-1 text-amber-500"></i> Status</h3>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Status comercial</label>
                             <select id="form-status-comercial" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
@@ -543,29 +642,13 @@
                             </select>
                         </div>
                     </div>
-
-                    <!-- Condições e observações -->
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Condições de pagamento</label>
-                        <textarea id="form-condicoes" rows="2" placeholder="Ex: 50% de entrada + 50% na entrega" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm resize-none"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Observações</label>
-                        <textarea id="form-observacoes" rows="2" placeholder="Observações adicionais para o cliente" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm resize-none"></textarea>
-                    </div>
-                </div>
-
-                <!-- Rodapé com ações -->
-                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-                    <button type="button" onclick="closeOrcamentoModal()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-                    <button type="submit" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
-                        <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar Orçamento
-                    </button>
                 </div>
             </form>
-        </div>
-    </div>
+        </section>
 
+    </main>
+
+    <!-- EXPORTAÇÃO (2 PÁGINAS A4 FIXAS COM O SEU MODELO EXATO DE TABELA) -->
     <div id="pdf-export-root" class="hidden">
         
         <!-- PÁGINA 1: CAPA OFICIAL -->
@@ -642,7 +725,7 @@
 
                     <!-- Rodapé da Seção 1 -->
                     <tr>
-                        <td class="subtitulo">
+                        <td class="subtitulo" id="pdf-campo-extra-label">
                             ESTIMATIVA DE BANHOS AO DIA
                         </td>
                         <td class="centralizado" id="pdf-banhos-val">
@@ -693,6 +776,22 @@
                             VALOR TOTAL (PRODUTOS + SERVIÇOS)
                         </td>
                     </tr>
+                    <tr id="pdf-linha-subtotal" style="display:none;">
+                        <td class="subtitulo">
+                            SUBTOTAL
+                        </td>
+                        <td class="centralizado" id="pdf-subtotal-val">
+                            -
+                        </td>
+                    </tr>
+                    <tr id="pdf-linha-desconto" style="display:none;">
+                        <td class="subtitulo">
+                            DESCONTO
+                        </td>
+                        <td class="centralizado" id="pdf-desconto-val">
+                            -
+                        </td>
+                    </tr>
                     <tr>
                         <td class="titulo-amarelo">
                             VALOR TOTAL
@@ -726,27 +825,6 @@
             </div>
         </div>
 
-        <!-- PÁGINA 3: LINHAS DE EQUIPAMENTOS E SOLUÇÕES ATENDIDAS -->
-        <div class="pdf-page-wrapper text-center justify-between" style="padding: 10mm 12mm;">
-            <div style="border: 4px solid #000; padding: 16px; height: 100%; display: flex; flex-direction: column; background: #fff;">
-                <div>
-                    <h3 style="font-family: Arial, sans-serif; font-size: 15px; font-weight: bold; text-transform: uppercase; text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 24px;">Linhas de Equipamentos e Soluções Atendidas</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; font-family: Arial, sans-serif;">
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Aquecedor à Gás</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Refletor Solar</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Energia Solar On-Grid</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Energia Solar Off-Grid</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Aquecedor à Vácuo</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Aquecedor Tradicional</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Aquecedor de Piscina</p>
-                        <p style="text-align: left; font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 0;">• Trocador de Calor</p>
-                    </div>
-                </div>
-                <div style="border-top: 2px solid #000; padding-top: 8px; font-size: 9px; color: #64748b; font-style: italic; text-align: center; font-family: Arial, sans-serif;">
-                    SJ Solar - Eficiência Energética e Sustentabilidade para sua Residência ou Empresa.
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- SCRIPT DE EXECUÇÃO -->
@@ -820,12 +898,16 @@
                     tipo_servico_detalhado: o.tipo_servico_detalhado,
                     status_comercial: o.status_comercial,
                     status_execucao: o.status_execucao,
-                    estimativa_banhos_dia: o.estimativa_banhos_dia || 0,
+                    campo_extra_label: o.campo_extra_label || 'Estimativa de banhos/dia',
+                    campo_extra_valor: o.campo_extra_valor || '',
                     garantia_equipamento: o.garantia_equipamento || '',
                     garantia_instalacao: o.garantia_instalacao || '',
                     valor_equipamentos: parseFloat(o.valor_equipamentos || 0),
                     valor_mao_de_obra: parseFloat(o.valor_mao_de_obra || 0),
                     valor_outros: parseFloat(o.valor_outros || 0),
+                    desconto_valor: parseFloat(o.desconto_valor || 0),
+                    desconto_tipo: o.desconto_tipo || 'valor',
+                    margem_lucro: parseFloat(o.margem_lucro || 0),
                     condicoes_pagamento: o.condicoes_pagamento || '',
                     observacoes: o.observacoes || '',
                     data_emissao: o.data_emissao,
@@ -842,6 +924,20 @@
             } catch (err) {
                 console.error("Erro na leitura das tabelas:", err.message);
             }
+        }
+
+        // Calcula o total de um orçamento já salvo (localOrcamentos), aplicando o desconto
+        function calcularTotalOrcamento(o) {
+            const subtotal = (o.valor_equipamentos || 0) + (o.valor_mao_de_obra || 0) + (o.valor_outros || 0);
+            const descontoValor = o.desconto_valor || 0;
+            let desconto = 0;
+            if (o.desconto_tipo === 'percentual') {
+                desconto = subtotal * (descontoValor / 100);
+            } else {
+                desconto = descontoValor;
+            }
+            desconto = Math.min(desconto, subtotal);
+            return { subtotal, desconto, total: subtotal - desconto };
         }
 
         // ALTERNADOR DE ABAS
@@ -934,7 +1030,7 @@
             );
 
             filtered.forEach(o => {
-                const total = o.valor_equipamentos + o.valor_mao_de_obra + o.valor_outros;
+                const { total } = calcularTotalOrcamento(o);
                 let badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${o.status_comercial}</span>`;
                 if (o.status_comercial === 'Aprovado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${o.status_comercial}</span>`;
                 if (o.status_comercial === 'Reprovado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">${o.status_comercial}</span>`;
@@ -981,11 +1077,42 @@
                     <td class="px-6 py-4 text-slate-600">${c.email || 'N/A'}</td>
                     <td class="px-6 py-4 text-xs text-slate-500">${c.endereco_completo || ''}, ${c.cidade || ''}-${c.estado || ''}</td>
                     <td class="px-6 py-4 text-center">
+                        <button onclick="editCliente('${c.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="deleteCliente('${c.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
                     </td>
                 `;
                 body.appendChild(tr);
             });
+        }
+
+        let editingClienteId = null;
+
+        function editCliente(id) {
+            const c = localClientes.find(x => String(x.id) === String(id));
+            if (!c) return;
+            editingClienteId = id;
+            document.getElementById('cli-nome').value = c.nome || '';
+            document.getElementById('cli-telefone').value = c.telefone || '';
+            document.getElementById('cli-email').value = c.email || '';
+            document.getElementById('cli-endereco').value = c.endereco_completo || '';
+            document.getElementById('cli-cidade').value = c.cidade || '';
+            document.getElementById('cli-estado').value = c.estado || '';
+
+            document.getElementById('btn-save-cliente').textContent = 'Salvar Alterações';
+            document.getElementById('btn-cancel-cliente').classList.remove('hidden');
+            document.getElementById('cli-nome').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function cancelEditCliente() {
+            editingClienteId = null;
+            document.getElementById('cli-nome').value = '';
+            document.getElementById('cli-telefone').value = '';
+            document.getElementById('cli-email').value = '';
+            document.getElementById('cli-endereco').value = '';
+            document.getElementById('cli-cidade').value = '';
+            document.getElementById('cli-estado').value = '';
+            document.getElementById('btn-save-cliente').textContent = 'Cadastrar Novo Cliente';
+            document.getElementById('btn-cancel-cliente').classList.add('hidden');
         }
 
         async function saveQuickCliente() {
@@ -996,24 +1123,26 @@
             const cidade = document.getElementById('cli-cidade').value.trim();
             const estado = document.getElementById('cli-estado').value.trim();
 
-            if (!nome || !telefone) {
-                alert("Nome e Telefone são obrigatórios.");
+            if (!nome) {
+                alert("Nome é obrigatório.");
                 return;
             }
 
             try {
-                const { error } = await supabaseClient
-                    .from('clientes')
-                    .insert({ nome, telefone, email, endereco_completo, cidade, estado });
-                if (error) throw error;
-                
-                document.getElementById('cli-nome').value = '';
-                document.getElementById('cli-telefone').value = '';
-                document.getElementById('cli-email').value = '';
-                document.getElementById('cli-endereco').value = '';
-                document.getElementById('cli-cidade').value = '';
-                document.getElementById('cli-estado').value = '';
+                if (editingClienteId) {
+                    const { error } = await supabaseClient
+                        .from('clientes')
+                        .update({ nome, telefone, email, endereco_completo, cidade, estado })
+                        .eq('id', editingClienteId);
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabaseClient
+                        .from('clientes')
+                        .insert({ nome, telefone, email, endereco_completo, cidade, estado });
+                    if (error) throw error;
+                }
 
+                cancelEditCliente();
                 await syncFromSupabase();
             } catch (err) {
                 alert(err.message);
@@ -1239,15 +1368,57 @@
             return parseInt(valSelect);
         }
 
-        function updateFormTotal() {
+        // Calcula subtotal, aplica desconto e devolve o total final
+        function calcularTotais() {
             const valEquip = parseFloat(document.getElementById('form-val-equip').value) || 0;
             const valMao = parseFloat(document.getElementById('form-val-mao').value) || 0;
             const valOutros = parseFloat(document.getElementById('form-val-outros').value) || 0;
-            const total = valEquip + valMao + valOutros;
+            const subtotal = valEquip + valMao + valOutros;
+
+            const descontoValor = parseFloat(document.getElementById('form-desconto-valor').value) || 0;
+            const descontoTipo = document.getElementById('form-desconto-tipo').value;
+            let desconto = 0;
+            if (descontoTipo === 'percentual') {
+                desconto = subtotal * (descontoValor / 100);
+            } else {
+                desconto = descontoValor;
+            }
+            desconto = Math.min(desconto, subtotal);
+
+            const total = subtotal - desconto;
+            return { valEquip, valMao, valOutros, subtotal, desconto, descontoTipo, descontoValor, total };
+        }
+
+        function updateFormTotal() {
+            const { subtotal, total } = calcularTotais();
+            document.getElementById('form-subtotal-display').textContent = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             document.getElementById('form-val-total').value = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
+        // Arredondamento automático (#13): ajusta "Outros valores" para que o total feche no valor desejado
+        function aplicarArredondamento() {
+            const alvo = parseFloat(document.getElementById('form-arredondar-para').value);
+            if (!alvo || alvo <= 0) {
+                alert("Informe um valor válido para arredondar.");
+                return;
+            }
+            const { valEquip, valMao, desconto } = calcularTotais();
+            // total = valEquip + valMao + valOutrosNovo - desconto  =>  valOutrosNovo = alvo + desconto - valEquip - valMao
+            const novoOutros = alvo + desconto - valEquip - valMao;
+            if (novoOutros < 0) {
+                alert("Não é possível arredondar para esse valor: equipamentos + mão de obra já ultrapassam o alvo. Ajuste manualmente.");
+                return;
+            }
+            document.getElementById('form-val-outros').value = novoOutros.toFixed(2);
+            updateFormTotal();
+        }
+
+        // Abre a página do editor de orçamento (em vez de modal)
         function openOrcamentoModal() {
+            openOrcamentoEditor();
+        }
+
+        function openOrcamentoEditor() {
             if (localClientes.length === 0) {
                 alert("Por favor, cadastre ao menos um cliente antes de gerar uma proposta.");
                 switchTab('clientes-tab');
@@ -1256,21 +1427,79 @@
             document.getElementById('orcamento-form').reset();
             populateClienteDropdown();
             document.getElementById('form-orcamento-id').value = '';
-            document.getElementById('modal-title').textContent = "Configurar Orçamento";
+            document.getElementById('editor-title').textContent = "Novo Orçamento";
+            document.getElementById('editor-subtitle').textContent = "Preencha os dados da proposta";
+            document.getElementById('form-campo-extra-label').value = 'Estimativa de banhos/dia';
+            document.getElementById('form-campo-extra-valor').value = '';
+            document.getElementById('form-desconto-valor').value = '';
+            document.getElementById('form-desconto-tipo').value = 'valor';
+            document.getElementById('form-margem-lucro').value = '';
+            document.getElementById('form-arredondar-para').value = '';
+            document.getElementById('form-subtotal-display').textContent = 'R$ 0,00';
             document.getElementById('form-val-total').value = "R$ 0,00";
             document.getElementById('validade-custom-container').classList.add('hidden');
             document.getElementById('equipments-list-container').innerHTML = '';
+            closeInlineClienteForm();
             addEquipmentRow(1, "");
             addEquipmentRow(1, "");
-            document.getElementById('orcamento-modal').classList.remove('hidden');
+            switchTab('orcamento-editor-tab');
         }
 
         function closeOrcamentoModal() {
-            document.getElementById('orcamento-modal').classList.add('hidden');
+            closeOrcamentoEditor();
+        }
+
+        function closeOrcamentoEditor() {
+            switchTab('orcamentos-tab');
+        }
+
+        // Cliente inline (#5): permite cadastrar cliente sem sair do editor de orçamento
+        function openInlineClienteForm() {
+            document.getElementById('inline-cliente-form').classList.remove('hidden');
+        }
+
+        function closeInlineClienteForm() {
+            const form = document.getElementById('inline-cliente-form');
+            if (!form) return;
+            form.classList.add('hidden');
+            ['inline-cli-nome', 'inline-cli-telefone', 'inline-cli-email', 'inline-cli-endereco', 'inline-cli-cidade', 'inline-cli-estado'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        }
+
+        async function saveInlineCliente() {
+            const nome = document.getElementById('inline-cli-nome').value.trim();
+            const telefone = document.getElementById('inline-cli-telefone').value.trim();
+            const email = document.getElementById('inline-cli-email').value.trim();
+            const endereco_completo = document.getElementById('inline-cli-endereco').value.trim();
+            const cidade = document.getElementById('inline-cli-cidade').value.trim();
+            const estado = document.getElementById('inline-cli-estado').value.trim();
+
+            if (!nome) {
+                alert("Nome é obrigatório.");
+                return;
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('clientes')
+                    .insert({ nome, telefone, email, endereco_completo, cidade, estado })
+                    .select()
+                    .single();
+                if (error) throw error;
+
+                await syncFromSupabase();
+                populateClienteDropdown();
+                document.getElementById('form-cliente-id').value = data.id;
+                closeInlineClienteForm();
+            } catch (err) {
+                alert("Erro ao cadastrar cliente: " + err.message);
+            }
         }
 
         async function handleFormSubmit(e) {
-            e.preventDefault();
+            if (e && e.preventDefault) e.preventDefault();
 
             const id = document.getElementById('form-orcamento-id').value;
             const dataEmissao = new Date().toISOString().split('T')[0];
@@ -1279,16 +1508,22 @@
             validadeData.setDate(validadeData.getDate() + validadeDias);
             const validadeStr = validadeData.toISOString().split('T')[0];
 
+            const { desconto, descontoTipo, descontoValor } = calcularTotais();
+
             const orcamentoPayload = {
                 cliente_id: document.getElementById('form-cliente-id').value,
                 tipo_orcamento: document.getElementById('form-tipo-orcamento').value,
                 tipo_servico_detalhado: document.getElementById('form-tipo-detalhado').value,
-                estimativa_banhos_dia: parseInt(document.getElementById('form-banhos').value) || 0,
+                campo_extra_label: document.getElementById('form-campo-extra-label').value.trim() || 'Estimativa de banhos/dia',
+                campo_extra_valor: document.getElementById('form-campo-extra-valor').value.trim(),
                 garantia_equipamento: document.getElementById('form-garantia-equip').value,
                 garantia_instalacao: document.getElementById('form-garantia-inst').value,
                 valor_equipamentos: parseFloat(document.getElementById('form-val-equip').value) || 0,
                 valor_mao_de_obra: parseFloat(document.getElementById('form-val-mao').value) || 0,
                 valor_outros: parseFloat(document.getElementById('form-val-outros').value) || 0,
+                desconto_valor: descontoValor,
+                desconto_tipo: descontoTipo,
+                margem_lucro: parseFloat(document.getElementById('form-margem-lucro').value) || 0,
                 status_comercial: document.getElementById('form-status-comercial').value,
                 status_execucao: document.getElementById('form-status-execucao').value,
                 condicoes_pagamento: document.getElementById('form-condicoes').value,
@@ -1310,7 +1545,7 @@
             } catch (err) {
                 alert("Erro ao gravar dados: " + err.message);
             }
-            closeOrcamentoModal();
+            closeOrcamentoEditor();
         }
 
         function editOrcamento(id) {
@@ -1318,16 +1553,22 @@
             if (!o) return;
 
             populateClienteDropdown();
+            closeInlineClienteForm();
             document.getElementById('form-orcamento-id').value = o.id;
             document.getElementById('form-cliente-id').value = o.cliente_id;
             document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
             document.getElementById('form-tipo-detalhado').value = o.tipo_servico_detalhado;
-            document.getElementById('form-banhos').value = o.estimativa_banhos_dia || 0;
+            document.getElementById('form-campo-extra-label').value = o.campo_extra_label || 'Estimativa de banhos/dia';
+            document.getElementById('form-campo-extra-valor').value = o.campo_extra_valor || '';
             document.getElementById('form-garantia-equip').value = o.garantia_equipamento || '';
             document.getElementById('form-garantia-inst').value = o.garantia_instalacao || '';
             document.getElementById('form-val-equip').value = o.valor_equipamentos;
             document.getElementById('form-val-mao').value = o.valor_mao_de_obra;
             document.getElementById('form-val-outros').value = o.valor_outros;
+            document.getElementById('form-desconto-valor').value = o.desconto_valor || '';
+            document.getElementById('form-desconto-tipo').value = o.desconto_tipo || 'valor';
+            document.getElementById('form-margem-lucro').value = o.margem_lucro || '';
+            document.getElementById('form-arredondar-para').value = '';
             document.getElementById('form-status-comercial').value = o.status_comercial;
             document.getElementById('form-status-execucao').value = o.status_execucao;
             document.getElementById('form-condicoes').value = o.condicoes_pagamento || '';
@@ -1351,9 +1592,10 @@
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 15;
             document.getElementById('form-validade-custom').value = diffDays;
 
-            document.getElementById('modal-title').textContent = `Editar Orçamento #${o.numero_orcamento}`;
+            document.getElementById('editor-title').textContent = `Editar Orçamento #${o.numero_orcamento}`;
+            document.getElementById('editor-subtitle').textContent = o.cliente_nome || '';
             updateFormTotal();
-            document.getElementById('orcamento-modal').classList.remove('hidden');
+            switchTab('orcamento-editor-tab');
         }
 
         async function deleteOrcamento(id) {
@@ -1378,12 +1620,58 @@
             }
         }
 
+        // Reduz dinamicamente o espaçador e, se necessário, a fonte dos campos
+        // de texto livre (observações / condições de pagamento) para que o
+        // conteúdo caiba dentro do limite físico de 297mm da página. Isso evita
+        // que textos longos "estourem" a caixa e apareçam cortados/soltos no PDF.
+        function ajustarConteudoOrcamentoPDF() {
+            const wrappers = document.querySelectorAll('#pdf-export-root .pdf-page-wrapper');
+            wrappers.forEach(wrapper => {
+                const box = wrapper.querySelector('.orcamento-pdf');
+                if (!box) return;
+
+                const spacer = box.querySelector('.area-equipamentos');
+                const maxHeight = wrapper.clientHeight;
+
+                // 1) Encolhe o espaçador da seção de equipamentos até o mínimo
+                let tentativas = 0;
+                while (spacer && box.scrollHeight > maxHeight && tentativas < 80) {
+                    const atual = parseFloat(spacer.style.height) || 0;
+                    if (atual <= 0) break;
+                    spacer.style.height = Math.max(0, atual - 4) + 'px';
+                    tentativas++;
+                }
+
+                // 2) Se ainda não coube, reduz a fonte dos textos livres
+                const camposLivres = [
+                    box.querySelector('#pdf-outros-desc'),
+                    box.querySelector('#pdf-condicoes-pag')
+                ].filter(Boolean);
+
+                let fonte = 11;
+                tentativas = 0;
+                while (box.scrollHeight > maxHeight && fonte > 7 && tentativas < 20) {
+                    fonte -= 0.5;
+                    camposLivres.forEach(el => { el.style.fontSize = fonte + 'px'; });
+                    tentativas++;
+                }
+            });
+        }
+
         // EXPORTAÇÃO EXATA DA SUA TABELA PARA O PDF (DINÂMICA)
         function exportToPDF(id) {
             const o = localOrcamentos.find(item => item.id === id);
             if (!o) return;
 
-            const total = o.valor_equipamentos + o.valor_mao_de_obra + o.valor_outros;
+            // Reseta ajustes de uma exportação anterior (fonte e espaçador)
+            document.querySelectorAll('#pdf-export-root .pdf-page-wrapper .orcamento-pdf').forEach(box => {
+                const outros = box.querySelector('#pdf-outros-desc');
+                const condicoes = box.querySelector('#pdf-condicoes-pag');
+                if (outros) outros.style.fontSize = '';
+                if (condicoes) condicoes.style.fontSize = '';
+            });
+
+            const { subtotal, desconto, total } = calcularTotalOrcamento(o);
             
             // Vincular campos de texto da tabela do PDF
             document.getElementById('pdf-numero').textContent = o.numero_orcamento || '-';
@@ -1419,8 +1707,12 @@
                 spacerRow.style.height = `${computedHeight}px`;
             }
 
-            // Estimativas e Garantias
-            document.getElementById('pdf-banhos-val').textContent = o.estimativa_banhos_dia > 0 ? `${o.estimativa_banhos_dia} BANHOS` : 'N/A';
+            // Estimativas e Garantias (campo livre: label + valor customizáveis)
+            const campoExtraLabel = (o.campo_extra_label || 'ESTIMATIVA DE BANHOS/DIA').toUpperCase();
+            const campoExtraValor = (o.campo_extra_valor || '').toString().trim();
+            const pdfBanhosLabelEl = document.getElementById('pdf-campo-extra-label');
+            if (pdfBanhosLabelEl) pdfBanhosLabelEl.textContent = campoExtraLabel;
+            document.getElementById('pdf-banhos-val').textContent = campoExtraValor ? campoExtraValor.toUpperCase() : 'N/A';
             document.getElementById('pdf-garantia-equip-val').textContent = o.garantia_equipamento || 'N/A';
 
             // Bloco de Instalação (modelo original não exibe valores parciais, só o total no final)
@@ -1430,6 +1722,22 @@
             // Observações adicionais
             document.getElementById('pdf-outros-desc').textContent = o.observacoes || 'SEM OBSERVAÇÕES ADICIONAIS.';
             document.getElementById('pdf-val-total-text').textContent = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            // Exibe subtotal e desconto apenas se houver desconto aplicado
+            const linhaSubtotal = document.getElementById('pdf-linha-subtotal');
+            const linhaDesconto = document.getElementById('pdf-linha-desconto');
+            if (desconto && desconto > 0) {
+                document.getElementById('pdf-subtotal-val').textContent = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                const descontoTexto = o.desconto_tipo === 'percentual'
+                    ? `${(o.desconto_valor || 0).toLocaleString('pt-BR')}% (${desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`
+                    : `- ${desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                document.getElementById('pdf-desconto-val').textContent = descontoTexto;
+                linhaSubtotal.style.display = '';
+                linhaDesconto.style.display = '';
+            } else {
+                linhaSubtotal.style.display = 'none';
+                linhaDesconto.style.display = 'none';
+            }
             
             // Observações financeiras (Forma de pagamento)
             document.getElementById('pdf-condicoes-pag').innerHTML = o.condicoes_pagamento ? o.condicoes_pagamento.replace(/\n/g, '<br>') : 'A COMBINAR.';
@@ -1440,34 +1748,54 @@
             const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
             document.getElementById('pdf-data-extenso').textContent = `${diasSemana[dataEmissao.getDay()]}, ${dataEmissao.getDate()} de ${meses[dataEmissao.getMonth()]} de ${dataEmissao.getFullYear()}`;
 
-            // Chamar renderizador html2pdf
-            // IMPORTANTE: o modo padrão de quebra de página do html2pdf.js é
-            // ['css', 'legacy']. O modo 'legacy' fatia o canvas inteiro por
-            // altura fixa de página POR CIMA das quebras já definidas via CSS
-            // (page-break-after: always nos .pdf-page-wrapper), o que duplica
-            // as quebras e gera uma página em branco depois de cada página real.
-            // Usar apenas o modo 'css' resolve, pois passa a respeitar somente
-            // as quebras explícitas do HTML.
-            const element = document.getElementById('pdf-export-root');
-            const opt = {
-                margin:       [0, 0, 0, 0],
-                filename:     `Proposta_SJ_Solar_${o.numero_orcamento}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: ['css'] }
-            };
-
+            // Corrige campos livres (observações / condições de pagamento) para caberem
+            // dentro do limite de 297mm da página, evitando corte/vazamento no PDF
             const wrapper = document.getElementById('pdf-export-root');
             wrapper.classList.remove('hidden');
-            
-            html2pdf().set(opt).from(element).save().then(() => {
-                wrapper.classList.add('hidden');
-            }).catch(err => {
-                console.error(err);
+            ajustarConteudoOrcamentoPDF();
+
+            // IMPORTANTE: deixar o html2pdf.js decidir sozinho onde quebrar as
+            // páginas (mesmo em modo 'css') é frágil: se o conteúdo real de UM
+            // .pdf-page-wrapper ficar um pixel mais alto que 297mm (ex: fontes
+            // renderizadas de forma levemente diferente, ícones, etc.), o
+            // jsPDF divide esse único wrapper em DUAS páginas de PDF, sendo a
+            // segunda quase em branco. Por isso, cada .pdf-page-wrapper é
+            // renderizado individualmente como UMA imagem e inserido como UMA
+            // página do PDF, garantindo sempre 1 wrapper = 1 página, sem
+            // duplicar nem gerar páginas em branco.
+            gerarPDFPorPaginas(
+                Array.from(wrapper.querySelectorAll('.pdf-page-wrapper')),
+                `Proposta_SJ_Solar_${o.numero_orcamento}.pdf`
+            ).finally(() => {
                 wrapper.classList.add('hidden');
             });
         }
+
+        async function gerarPDFPorPaginas(paginas, filename) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+            for (let i = 0; i < paginas.length; i++) {
+                const pagina = paginas[i];
+                const canvas = await html2canvas(pagina, {
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    // Limita a captura exatamente à altura visível do wrapper
+                    // (297mm), evitando que um eventual overflow vaze para
+                    // fora da página capturada.
+                    height: pagina.clientHeight,
+                    windowHeight: pagina.clientHeight
+                });
+                const imgData = canvas.toDataURL('image/jpeg', 0.98);
+
+                if (i > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+            }
+
+            pdf.save(filename);
+        }
     </script>
 </body>
+
 </html>
