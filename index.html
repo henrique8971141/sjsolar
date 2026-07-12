@@ -191,6 +191,9 @@
                 <button onclick="switchTab('clientes-tab')" id="nav-clientes-tab" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-all m-0.5">
                     <i class="fa-solid fa-users mr-1"></i> Clientes
                 </button>
+                <button onclick="switchTab('projetos-tab')" id="nav-projetos-tab" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-all m-0.5">
+                    <i class="fa-solid fa-diagram-project mr-1"></i> Projetos
+                </button>
                 <button onclick="switchTab('produtos-tab')" id="nav-produtos-tab" class="px-3 py-1.5 rounded-lg font-bold text-xs md:text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-all m-0.5">
                     <i class="fa-solid fa-tags mr-1"></i> Catálogo de Itens
                 </button>
@@ -276,6 +279,14 @@
                 </button>
             </div>
 
+            <div class="flex flex-wrap gap-2" id="filtros-orcamentos-container">
+                <button onclick="setFiltroOrcamento('todos')" data-filtro="todos" class="filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-900 text-white transition-colors">Todos</button>
+                <button onclick="setFiltroOrcamento('a_iniciar')" data-filtro="a_iniciar" class="filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">A iniciar</button>
+                <button onclick="setFiltroOrcamento('em_andamento')" data-filtro="em_andamento" class="filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Em andamento</button>
+                <button onclick="setFiltroOrcamento('finalizado')" data-filtro="finalizado" class="filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Finalizado</button>
+                <button onclick="setFiltroOrcamento('expirado')" data-filtro="expirado" class="filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Expirado</button>
+            </div>
+
             <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -330,6 +341,26 @@
                     <tbody id="clientes-list-body" class="divide-y divide-slate-100"></tbody>
                 </table>
             </div>
+        </section>
+
+        <!-- ABA: PROJETOS (agrupa orçamentos por projeto, separa clientes homônimos) -->
+        <section id="projetos-tab" class="tab-content hidden space-y-6">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider">Projetos</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <select id="proj-cliente-id" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="">Selecione o cliente *</option>
+                    </select>
+                    <input type="text" id="proj-nome" placeholder="Nome do Projeto *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="proj-descricao" placeholder="Descrição (opcional)" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button id="btn-cancel-projeto" onclick="cancelEditProjeto()" class="hidden px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-300 transition-colors">Cancelar</button>
+                    <button id="btn-save-projeto" onclick="saveProjeto()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar Projeto</button>
+                </div>
+            </div>
+
+            <div id="projetos-list-container" class="space-y-4"></div>
         </section>
 
         <!-- ABA 4: CATÁLOGO DE PRODUTOS E MÃO DE OBRA -->
@@ -425,10 +456,14 @@
                         <h2 id="editor-title" class="text-xl font-black text-slate-900 font-brand">Novo Orçamento</h2>
                         <p class="text-xs text-slate-400 font-semibold" id="editor-subtitle">Preencha os dados da proposta</p>
                     </div>
+                    <span id="badge-somente-leitura" class="hidden px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-600 uppercase"><i class="fa-solid fa-lock mr-1"></i> Somente visualização</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="closeOrcamentoEditor()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 transition-colors">Cancelar</button>
-                    <button type="button" onclick="handleFormSubmit(event)" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                    <button type="button" id="btn-habilitar-edicao" onclick="habilitarEdicaoOrcamento()" class="hidden px-6 py-2.5 rounded-lg font-bold text-sm bg-amber-400 hover:bg-amber-500 text-slate-950 shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-pen"></i> Editar
+                    </button>
+                    <button type="button" id="btn-salvar-orcamento" onclick="handleFormSubmit(event)" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
                         <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar Orçamento
                     </button>
                 </div>
@@ -448,11 +483,21 @@
                             <div>
                                 <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente</label>
                                 <div class="flex gap-2">
-                                    <select id="form-cliente-id" required class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm"></select>
+                                    <button type="button" onclick="openClienteSelectorCard()" id="btn-selecionar-cliente" class="w-full text-left px-3 py-2.5 rounded-lg border border-slate-200 hover:border-amber-400 bg-white text-sm transition-colors flex items-center justify-between gap-2">
+                                        <span id="btn-selecionar-cliente-label" class="text-slate-400">Selecionar cliente...</span>
+                                        <i class="fa-solid fa-chevron-down text-slate-400 text-xs"></i>
+                                    </button>
+                                    <select id="form-cliente-id" required class="hidden"></select>
                                     <button type="button" onclick="openInlineClienteForm()" title="Cadastrar novo cliente" class="shrink-0 px-3 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
                                         <i class="fa-solid fa-user-plus"></i>
                                     </button>
                                 </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Projeto</label>
+                                <select id="form-projeto-id" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                    <option value="">Sem projeto</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Orçamento</label>
@@ -482,6 +527,25 @@
                                 <input type="text" id="inline-cli-estado" maxlength="2" placeholder="UF" class="px-3 py-2 rounded-lg border border-slate-200 text-sm uppercase">
                             </div>
                             <button type="button" onclick="saveInlineCliente()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar e Selecionar</button>
+                        </div>
+
+                        <!-- Card/modal de seleção de cliente -->
+                        <div id="cliente-selector-overlay" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+                                <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-2">
+                                    <span class="font-bold text-sm text-slate-700 uppercase tracking-wider">Selecionar Cliente</span>
+                                    <button type="button" onclick="closeClienteSelectorCard()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div class="p-3 border-b border-slate-200">
+                                    <input type="text" id="cliente-selector-search" oninput="renderClienteSelectorList()" placeholder="Buscar por nome, cidade..." class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                </div>
+                                <div id="cliente-selector-list" class="overflow-y-auto flex-grow p-2 space-y-1"></div>
+                                <div class="p-3 border-t border-slate-200">
+                                    <button type="button" onclick="closeClienteSelectorCard(); openInlineClienteForm();" class="w-full py-2 bg-slate-100 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-200 transition-colors">
+                                        <i class="fa-solid fa-user-plus mr-1"></i> Cadastrar novo cliente
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -530,7 +594,12 @@
                     <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
                         <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-file-lines mr-1 text-amber-500"></i> Condições e Observações</h3>
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Condições de pagamento</label>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Formas de pagamento</label>
+                            <div id="pagamentos-list-container" class="space-y-2 mb-2"></div>
+                            <button type="button" onclick="addPagamentoRow()" class="text-xs font-bold text-amber-600 hover:text-amber-700"><i class="fa-solid fa-plus mr-1"></i> Adicionar forma de pagamento</button>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Condições de pagamento (texto livre, opcional)</label>
                             <textarea id="form-condicoes" rows="2" placeholder="Ex: 50% de entrada + 50% na entrega" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm resize-none"></textarea>
                         </div>
                         <div>
@@ -841,6 +910,7 @@
         let supabaseClient = null;
         let localOrcamentos = [];
         let localClientes = [];
+        let localProjetos = [];
         let localCatalog = [];
         let chartInstanceComercial = null;
         let chartInstanceExecucao = null;
@@ -872,6 +942,20 @@
                 if (errCli) throw errCli;
                 localClientes = clientesData || [];
 
+                // Sincronizar Projetos
+                const { data: projetosData, error: errProj } = await supabaseClient
+                    .from('projetos')
+                    .select(`*, clientes (nome)`)
+                    .order('created_at', { ascending: false });
+                if (errProj) throw errProj;
+                localProjetos = (projetosData || []).map(p => ({
+                    id: p.id,
+                    cliente_id: p.cliente_id,
+                    cliente_nome: p.clientes?.nome || '',
+                    nome: p.nome,
+                    descricao: p.descricao || ''
+                }));
+
                 // Sincronizar Catálogo
                 const { data: catalogData, error: errCat } = await supabaseClient.from('produtos_servicos').select('*').order('descricao');
                 if (errCat) throw errCat;
@@ -894,6 +978,8 @@
                     cliente_endereco: o.clientes?.endereco_completo || '',
                     cliente_cidade: o.clientes?.cidade || '',
                     cliente_estado: o.clientes?.estado || '',
+                    projeto_id: o.projeto_id || null,
+                    principal: !!o.principal,
                     tipo_orcamento: o.tipo_orcamento,
                     tipo_servico_detalhado: o.tipo_servico_detalhado,
                     status_comercial: o.status_comercial,
@@ -909,6 +995,7 @@
                     desconto_tipo: o.desconto_tipo || 'valor',
                     margem_lucro: parseFloat(o.margem_lucro || 0),
                     condicoes_pagamento: o.condicoes_pagamento || '',
+                    pagamentos_json: o.pagamentos_json || [],
                     observacoes: o.observacoes || '',
                     data_emissao: o.data_emissao,
                     validade_proposta: o.validade_proposta,
@@ -918,8 +1005,10 @@
                 renderDashboard();
                 renderOrcamentos();
                 renderClientes();
+                renderProjetos();
                 renderCatalog();
                 populateClienteDropdown();
+                populateProjetoDropdowns();
                 updateDatalist();
             } catch (err) {
                 console.error("Erro na leitura das tabelas:", err.message);
@@ -945,7 +1034,7 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(tabId).classList.remove('hidden');
 
-            const tabs = ['dashboard-tab', 'orcamentos-tab', 'clientes-tab', 'produtos-tab'];
+            const tabs = ['dashboard-tab', 'orcamentos-tab', 'clientes-tab', 'projetos-tab', 'produtos-tab'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`nav-${t}`);
                 if (t === tabId) {
@@ -957,11 +1046,27 @@
         }
 
         // RENDERS E COMPONENTES
+        // Retorna 1 orçamento por cliente/projeto (o marcado como principal, ou o mais recente) para não duplicar contagem no dashboard
+        function getOrcamentosDashboard() {
+            const grupos = {};
+            localOrcamentos.forEach(o => {
+                const chave = o.projeto_id ? `p_${o.projeto_id}` : `c_${o.cliente_id}`;
+                if (!grupos[chave]) grupos[chave] = [];
+                grupos[chave].push(o);
+            });
+            return Object.values(grupos).map(lista => {
+                if (lista.length === 1) return lista[0];
+                const marcado = lista.find(o => o.principal);
+                return marcado || lista[0];
+            });
+        }
+
         function renderDashboard() {
-            const totalCount = localOrcamentos.length;
-            const totalValue = localOrcamentos.reduce((acc, curr) => acc + (curr.valor_equipamentos + curr.valor_mao_de_obra + curr.valor_outros), 0);
-            const approved = localOrcamentos.filter(o => o.status_comercial === 'Aprovado');
-            const inProgress = localOrcamentos.filter(o => o.status_execucao === 'Em andamento').length;
+            const orcamentosParaMetrica = getOrcamentosDashboard();
+            const totalCount = orcamentosParaMetrica.length;
+            const totalValue = orcamentosParaMetrica.reduce((acc, curr) => acc + (curr.valor_equipamentos + curr.valor_mao_de_obra + curr.valor_outros), 0);
+            const approved = orcamentosParaMetrica.filter(o => o.status_comercial === 'Aprovado');
+            const inProgress = orcamentosParaMetrica.filter(o => o.status_execucao === 'Em andamento').length;
             const conversionRate = totalCount > 0 ? Math.round((approved.length / totalCount) * 100) : 0;
 
             document.getElementById('metric-total-count').textContent = totalCount;
@@ -972,7 +1077,7 @@
             const comercialCounts = { 'Em Negociação': 0, 'Aprovado': 0, 'Reprovado': 0, 'Expirado': 0 };
             const execucaoCounts = { 'A iniciar': 0, 'Em andamento': 0, 'Finalizado': 0 };
 
-            localOrcamentos.forEach(o => {
+            orcamentosParaMetrica.forEach(o => {
                 if (comercialCounts[o.status_comercial] !== undefined) comercialCounts[o.status_comercial]++;
                 if (execucaoCounts[o.status_execucao] !== undefined) execucaoCounts[o.status_execucao]++;
             });
@@ -1019,18 +1124,76 @@
             });
         }
 
+        async function marcarOrcamentoPrincipal(id) {
+            const o = localOrcamentos.find(x => x.id === id);
+            if (!o) return;
+            const chaveGrupo = o.projeto_id ? `p_${o.projeto_id}` : `c_${o.cliente_id}`;
+            const grupo = localOrcamentos.filter(x => (x.projeto_id ? `p_${x.projeto_id}` : `c_${x.cliente_id}`) === chaveGrupo);
+
+            try {
+                const idsParaDesmarcar = grupo.filter(x => x.id !== id && x.principal).map(x => x.id);
+                if (idsParaDesmarcar.length > 0) {
+                    const { error: errDesmarcar } = await supabaseClient.from('orcamentos').update({ principal: false }).in('id', idsParaDesmarcar);
+                    if (errDesmarcar) throw errDesmarcar;
+                }
+                const { error } = await supabaseClient.from('orcamentos').update({ principal: true }).eq('id', id);
+                if (error) throw error;
+                await syncFromSupabase();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        let filtroOrcamentoAtivo = 'todos';
+
+        function setFiltroOrcamento(filtro) {
+            filtroOrcamentoAtivo = filtro;
+            document.querySelectorAll('.filtro-chip').forEach(btn => {
+                if (btn.dataset.filtro === filtro) {
+                    btn.className = "filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-900 text-white transition-colors";
+                } else {
+                    btn.className = "filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors";
+                }
+            });
+            renderOrcamentos();
+        }
+
+        // Um orçamento é expirado se a validade já passou e ele não foi finalizado
+        function isOrcamentoExpirado(o) {
+            if (!o.validade_proposta) return false;
+            if (o.status_execucao === 'Finalizado') return false;
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            const validade = new Date(o.validade_proposta + 'T00:00:00');
+            return validade < hoje;
+        }
+
         function renderOrcamentos() {
             const query = document.getElementById('search-orcamentos').value.toLowerCase();
             const listBody = document.getElementById('orcamentos-list-body');
             listBody.innerHTML = '';
 
-            const filtered = localOrcamentos.filter(o => 
-                (o.numero_orcamento && o.numero_orcamento.toLowerCase().includes(query)) || 
-                (o.cliente_nome && o.cliente_nome.toLowerCase().includes(query))
-            );
+            const filtered = localOrcamentos.filter(o => {
+                const matchQuery = (o.numero_orcamento && o.numero_orcamento.toLowerCase().includes(query)) ||
+                    (o.cliente_nome && o.cliente_nome.toLowerCase().includes(query));
+                if (!matchQuery) return false;
+
+                if (filtroOrcamentoAtivo === 'todos') return true;
+                if (filtroOrcamentoAtivo === 'expirado') return isOrcamentoExpirado(o);
+                if (filtroOrcamentoAtivo === 'a_iniciar') return o.status_execucao === 'A iniciar' && !isOrcamentoExpirado(o);
+                if (filtroOrcamentoAtivo === 'em_andamento') return o.status_execucao === 'Em andamento' && !isOrcamentoExpirado(o);
+                if (filtroOrcamentoAtivo === 'finalizado') return o.status_execucao === 'Finalizado';
+                return true;
+            });
 
             filtered.forEach(o => {
                 const { total } = calcularTotalOrcamento(o);
+                const chaveGrupo = o.projeto_id ? `p_${o.projeto_id}` : `c_${o.cliente_id}`;
+                const grupoCount = localOrcamentos.filter(x => (x.projeto_id ? `p_${x.projeto_id}` : `c_${x.cliente_id}`) === chaveGrupo).length;
+                const estrelaHtml = grupoCount > 1
+                    ? `<button onclick="marcarOrcamentoPrincipal('${o.id}')" title="${o.principal ? 'Principal' : 'Marcar como principal'}" class="p-1.5 ${o.principal ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} transition-colors"><i class="fa-solid fa-star"></i></button>`
+                    : '';
+
                 let badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${o.status_comercial}</span>`;
                 if (o.status_comercial === 'Aprovado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${o.status_comercial}</span>`;
                 if (o.status_comercial === 'Reprovado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">${o.status_comercial}</span>`;
@@ -1039,6 +1202,7 @@
                 let badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">${o.status_execucao}</span>`;
                 if (o.status_execucao === 'Em andamento') badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">${o.status_execucao}</span>`;
                 if (o.status_execucao === 'Finalizado') badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${o.status_execucao}</span>`;
+                if (isOrcamentoExpirado(o)) badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Expirado</span>`;
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition-colors";
@@ -1056,6 +1220,8 @@
                     <td class="px-6 py-4 text-center">${badgeComercial}</td>
                     <td class="px-6 py-4 text-center">${badgeExecucao}</td>
                     <td class="px-6 py-4 text-center space-x-1 whitespace-nowrap">
+                        ${estrelaHtml}
+                        <button onclick="viewOrcamento('${o.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
                         <button onclick="exportToPDF('${o.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"><i class="fa-solid fa-file-pdf text-base"></i></button>
                         <button onclick="editOrcamento('${o.id}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
                         <button onclick="deleteOrcamento('${o.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
@@ -1153,6 +1319,197 @@
             if (!confirm("Isso removerá também todos os orçamentos vinculados a este cliente. Confirmar?")) return;
             try {
                 const { error } = await supabaseClient.from('clientes').delete().eq('id', id);
+                if (error) throw error;
+                await syncFromSupabase();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // CARD DE SELEÇÃO DE CLIENTE (usado no editor de orçamento)
+        function openClienteSelectorCard() {
+            document.getElementById('cliente-selector-overlay').classList.remove('hidden');
+            document.getElementById('cliente-selector-search').value = '';
+            renderClienteSelectorList();
+            document.getElementById('cliente-selector-search').focus();
+        }
+
+        function closeClienteSelectorCard() {
+            document.getElementById('cliente-selector-overlay').classList.add('hidden');
+        }
+
+        function renderClienteSelectorList() {
+            const query = document.getElementById('cliente-selector-search').value.toLowerCase();
+            const container = document.getElementById('cliente-selector-list');
+            const selecionadoId = document.getElementById('form-cliente-id').value;
+            const filtrados = localClientes.filter(c =>
+                !query ||
+                (c.nome && c.nome.toLowerCase().includes(query)) ||
+                (c.cidade && c.cidade.toLowerCase().includes(query))
+            );
+
+            if (filtrados.length === 0) {
+                container.innerHTML = '<div class="text-sm text-slate-400 text-center py-6">Nenhum cliente encontrado.</div>';
+                return;
+            }
+
+            container.innerHTML = filtrados.map(c => `
+                <button type="button" onclick="selecionarClienteCard('${c.id}')"
+                    class="w-full text-left p-3 rounded-lg border ${String(c.id) === String(selecionadoId) ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'} transition-colors">
+                    <div class="font-bold text-slate-900 text-sm">${c.nome}</div>
+                    <div class="text-xs text-slate-500">${c.cidade || 'Sem cidade'}${c.telefone ? ' · ' + c.telefone : ''}</div>
+                </button>
+            `).join('');
+        }
+
+        function selecionarClienteCard(id) {
+            document.getElementById('form-cliente-id').value = id;
+            atualizarBotaoClienteSelecionado();
+            atualizarProjetosDoCliente(id);
+            closeClienteSelectorCard();
+        }
+
+        // Atualiza o texto do botão de seleção de cliente conforme o select oculto
+        function atualizarBotaoClienteSelecionado() {
+            const id = document.getElementById('form-cliente-id').value;
+            const label = document.getElementById('btn-selecionar-cliente-label');
+            const c = localClientes.find(x => String(x.id) === String(id));
+            if (c) {
+                label.textContent = `${c.nome}${c.cidade ? ' (' + c.cidade + ')' : ''}`;
+                label.classList.remove('text-slate-400');
+                label.classList.add('text-slate-900', 'font-semibold');
+            } else {
+                label.textContent = 'Selecionar cliente...';
+                label.classList.add('text-slate-400');
+                label.classList.remove('text-slate-900', 'font-semibold');
+            }
+        }
+
+        // PROJETOS (agrupam orçamentos por cliente, separando clientes homônimos)
+        function populateProjetoDropdowns() {
+            const selectCadastro = document.getElementById('proj-cliente-id');
+            const selectFormOrc = document.getElementById('form-projeto-id');
+            if (selectCadastro) {
+                const atual = selectCadastro.value;
+                selectCadastro.innerHTML = '<option value="">Selecione o cliente *</option>' +
+                    localClientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+                selectCadastro.value = atual;
+            }
+            if (selectFormOrc) {
+                const clienteAtualId = document.getElementById('form-cliente-id')?.value || '';
+                atualizarProjetosDoCliente(clienteAtualId);
+            }
+        }
+
+        // Filtra o select de projeto do orçamento pelos projetos do cliente selecionado
+        function atualizarProjetosDoCliente(clienteId) {
+            const select = document.getElementById('form-projeto-id');
+            if (!select) return;
+            const atual = select.value;
+            const projetosDoCliente = localProjetos.filter(p => String(p.cliente_id) === String(clienteId));
+            select.innerHTML = '<option value="">Sem projeto</option>' +
+                projetosDoCliente.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+            select.value = projetosDoCliente.some(p => String(p.id) === String(atual)) ? atual : '';
+        }
+
+        function renderProjetos() {
+            const container = document.getElementById('projetos-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (localProjetos.length === 0) {
+                container.innerHTML = '<div class="text-sm text-slate-400 text-center py-8">Nenhum projeto cadastrado ainda.</div>';
+                return;
+            }
+
+            localProjetos.forEach(p => {
+                const orcamentosDoProjeto = localOrcamentos.filter(o => String(o.projeto_id) === String(p.id));
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden";
+                card.innerHTML = `
+                    <div class="p-4 flex justify-between items-start gap-3 bg-slate-50 border-b border-slate-200">
+                        <div>
+                            <div class="font-bold text-slate-900 text-sm">${p.nome}</div>
+                            <div class="text-xs text-slate-500">${p.cliente_nome}${p.descricao ? ' — ' + p.descricao : ''}</div>
+                        </div>
+                        <div class="flex gap-1 shrink-0">
+                            <button onclick="editProjeto('${p.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteProjeto('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="p-4 text-xs text-slate-500">
+                        ${orcamentosDoProjeto.length === 0
+                            ? 'Nenhum orçamento vinculado a este projeto ainda.'
+                            : orcamentosDoProjeto.map(o => `
+                                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                                    <span class="text-slate-700">${o.numero_orcamento || '-'} ${o.principal ? '<span class=\"text-amber-600 font-bold\">★ Principal</span>' : ''}</span>
+                                    <button onclick="switchTab('orcamentos-tab')" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                                </div>
+                            `).join('')}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        let editingProjetoId = null;
+
+        function editProjeto(id) {
+            const p = localProjetos.find(x => String(x.id) === String(id));
+            if (!p) return;
+            editingProjetoId = id;
+            document.getElementById('proj-cliente-id').value = p.cliente_id;
+            document.getElementById('proj-nome').value = p.nome || '';
+            document.getElementById('proj-descricao').value = p.descricao || '';
+            document.getElementById('btn-save-projeto').textContent = 'Salvar Alterações';
+            document.getElementById('btn-cancel-projeto').classList.remove('hidden');
+            document.getElementById('proj-nome').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function cancelEditProjeto() {
+            editingProjetoId = null;
+            document.getElementById('proj-cliente-id').value = '';
+            document.getElementById('proj-nome').value = '';
+            document.getElementById('proj-descricao').value = '';
+            document.getElementById('btn-save-projeto').textContent = 'Cadastrar Projeto';
+            document.getElementById('btn-cancel-projeto').classList.add('hidden');
+        }
+
+        async function saveProjeto() {
+            const cliente_id = document.getElementById('proj-cliente-id').value;
+            const nome = document.getElementById('proj-nome').value.trim();
+            const descricao = document.getElementById('proj-descricao').value.trim();
+
+            if (!cliente_id || !nome) {
+                alert("Cliente e nome do projeto são obrigatórios.");
+                return;
+            }
+
+            try {
+                if (editingProjetoId) {
+                    const { error } = await supabaseClient
+                        .from('projetos')
+                        .update({ cliente_id, nome, descricao })
+                        .eq('id', editingProjetoId);
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabaseClient
+                        .from('projetos')
+                        .insert({ cliente_id, nome, descricao });
+                    if (error) throw error;
+                }
+
+                cancelEditProjeto();
+                await syncFromSupabase();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function deleteProjeto(id) {
+            if (!confirm("Isso removerá o vínculo dos orçamentos com este projeto (eles não serão apagados). Confirmar?")) return;
+            try {
+                const { error } = await supabaseClient.from('projetos').delete().eq('id', id);
                 if (error) throw error;
                 await syncFromSupabase();
             } catch (err) {
@@ -1315,6 +1672,10 @@
                 opt.textContent = `${c.nome} (${c.cidade || 'Sem Cidade'})`;
                 select.appendChild(opt);
             });
+            if (!select.dataset.projetoListenerAttached) {
+                select.addEventListener('change', () => atualizarProjetosDoCliente(select.value));
+                select.dataset.projetoListenerAttached = '1';
+            }
         }
 
         // LINHAS DINÂMICAS DE EQUIPAMENTOS
@@ -1347,6 +1708,64 @@
                 if (desc) list.push({ qtd, desc });
             }
             return list;
+        }
+
+        // FORMAS DE PAGAMENTO (múltiplas: PIX, Cartão em Nx, etc.)
+        function addPagamentoRow(tipo = 'PIX', valor = '', parcelas = '') {
+            const container = document.getElementById('pagamentos-list-container');
+            const rowId = 'pag-row-' + Date.now() + Math.floor(Math.random() * 1000);
+            const div = document.createElement('div');
+            div.id = rowId;
+            div.className = "flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200";
+            div.innerHTML = `
+                <select class="pag-tipo px-2 py-1 rounded border border-slate-300 text-sm bg-white" onchange="togglePagamentoParcelas('${rowId}')">
+                    <option value="PIX" ${tipo === 'PIX' ? 'selected' : ''}>PIX</option>
+                    <option value="Cartão" ${tipo === 'Cartão' ? 'selected' : ''}>Cartão</option>
+                    <option value="Dinheiro" ${tipo === 'Dinheiro' ? 'selected' : ''}>Dinheiro</option>
+                    <option value="Boleto" ${tipo === 'Boleto' ? 'selected' : ''}>Boleto</option>
+                    <option value="Outro" ${tipo === 'Outro' ? 'selected' : ''}>Outro</option>
+                </select>
+                <input type="text" placeholder="Valor (ex: R$ 500,00 ou 50%)" value="${valor}" class="pag-valor flex-grow px-2 py-1 rounded border border-slate-300 text-sm">
+                <input type="number" min="1" placeholder="Nx" value="${parcelas}" title="Número de parcelas" class="pag-parcelas w-16 px-2 py-1 rounded border border-slate-300 text-sm ${tipo === 'Cartão' ? '' : 'hidden'}">
+                <button type="button" onclick="removePagamentoRow('${rowId}')" class="text-red-500 hover:text-red-700 px-2"><i class="fa-solid fa-trash"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function togglePagamentoParcelas(rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            const tipo = row.querySelector('.pag-tipo').value;
+            const parcelasInput = row.querySelector('.pag-parcelas');
+            parcelasInput.classList.toggle('hidden', tipo !== 'Cartão');
+        }
+
+        function removePagamentoRow(rowId) {
+            const el = document.getElementById(rowId);
+            if (el) el.remove();
+        }
+
+        function getPagamentosList() {
+            const container = document.getElementById('pagamentos-list-container');
+            const rows = container.children;
+            const list = [];
+            for (let r of rows) {
+                const tipo = r.querySelector('.pag-tipo').value;
+                const valor = r.querySelector('.pag-valor').value.trim();
+                const parcelas = r.querySelector('.pag-parcelas').value;
+                if (valor) list.push({ tipo, valor, parcelas: tipo === 'Cartão' ? (parcelas || '1') : '' });
+            }
+            return list;
+        }
+
+        // Gera o texto formatado a partir da lista estruturada de pagamentos
+        function formatarPagamentosTexto(lista) {
+            return lista.map(p => {
+                if (p.tipo === 'Cartão' && p.parcelas) {
+                    return `${p.tipo.toUpperCase()} em até ${p.parcelas}x: ${p.valor}`;
+                }
+                return `${p.tipo.toUpperCase()}: ${p.valor}`;
+            }).join('\n');
         }
 
         function handleValidadeChange() {
@@ -1427,6 +1846,8 @@
             document.getElementById('orcamento-form').reset();
             populateClienteDropdown();
             document.getElementById('form-orcamento-id').value = '';
+            atualizarBotaoClienteSelecionado();
+            atualizarProjetosDoCliente(document.getElementById('form-cliente-id').value);
             document.getElementById('editor-title').textContent = "Novo Orçamento";
             document.getElementById('editor-subtitle').textContent = "Preencha os dados da proposta";
             document.getElementById('form-campo-extra-label').value = 'Estimativa de banhos/dia';
@@ -1439,9 +1860,12 @@
             document.getElementById('form-val-total').value = "R$ 0,00";
             document.getElementById('validade-custom-container').classList.add('hidden');
             document.getElementById('equipments-list-container').innerHTML = '';
+            document.getElementById('pagamentos-list-container').innerHTML = '';
             closeInlineClienteForm();
             addEquipmentRow(1, "");
             addEquipmentRow(1, "");
+            addPagamentoRow();
+            setFormReadOnly(false);
             switchTab('orcamento-editor-tab');
         }
 
@@ -1492,6 +1916,8 @@
                 await syncFromSupabase();
                 populateClienteDropdown();
                 document.getElementById('form-cliente-id').value = data.id;
+                atualizarBotaoClienteSelecionado();
+                atualizarProjetosDoCliente(data.id);
                 closeInlineClienteForm();
             } catch (err) {
                 alert("Erro ao cadastrar cliente: " + err.message);
@@ -1512,6 +1938,7 @@
 
             const orcamentoPayload = {
                 cliente_id: document.getElementById('form-cliente-id').value,
+                projeto_id: document.getElementById('form-projeto-id').value || null,
                 tipo_orcamento: document.getElementById('form-tipo-orcamento').value,
                 tipo_servico_detalhado: document.getElementById('form-tipo-detalhado').value,
                 campo_extra_label: document.getElementById('form-campo-extra-label').value.trim() || 'Estimativa de banhos/dia',
@@ -1527,6 +1954,7 @@
                 status_comercial: document.getElementById('form-status-comercial').value,
                 status_execucao: document.getElementById('form-status-execucao').value,
                 condicoes_pagamento: document.getElementById('form-condicoes').value,
+                pagamentos_json: getPagamentosList(),
                 observacoes: document.getElementById('form-observacoes').value,
                 data_emissao: dataEmissao,
                 validade_proposta: validadeStr,
@@ -1548,6 +1976,30 @@
             closeOrcamentoEditor();
         }
 
+        function viewOrcamento(id) {
+            editOrcamento(id);
+            setFormReadOnly(true);
+        }
+
+        function habilitarEdicaoOrcamento() {
+            setFormReadOnly(false);
+        }
+
+        function setFormReadOnly(readOnly) {
+            const form = document.getElementById('orcamento-form');
+            form.querySelectorAll('input, select, textarea, button').forEach(el => {
+                if (el.type === 'button' && (el.getAttribute('onclick') || '').includes('closeOrcamentoEditor')) return;
+                if (readOnly) {
+                    el.setAttribute('disabled', 'disabled');
+                } else {
+                    el.removeAttribute('disabled');
+                }
+            });
+            document.getElementById('badge-somente-leitura').classList.toggle('hidden', !readOnly);
+            document.getElementById('btn-habilitar-edicao').classList.toggle('hidden', !readOnly);
+            document.getElementById('btn-salvar-orcamento').classList.toggle('hidden', readOnly);
+        }
+
         function editOrcamento(id) {
             const o = localOrcamentos.find(item => item.id === id);
             if (!o) return;
@@ -1556,6 +2008,9 @@
             closeInlineClienteForm();
             document.getElementById('form-orcamento-id').value = o.id;
             document.getElementById('form-cliente-id').value = o.cliente_id;
+            atualizarBotaoClienteSelecionado();
+            atualizarProjetosDoCliente(o.cliente_id);
+            document.getElementById('form-projeto-id').value = o.projeto_id || '';
             document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
             document.getElementById('form-tipo-detalhado').value = o.tipo_servico_detalhado;
             document.getElementById('form-campo-extra-label').value = o.campo_extra_label || 'Estimativa de banhos/dia';
@@ -1573,6 +2028,13 @@
             document.getElementById('form-status-execucao').value = o.status_execucao;
             document.getElementById('form-condicoes').value = o.condicoes_pagamento || '';
             document.getElementById('form-observacoes').value = o.observacoes || '';
+
+            document.getElementById('pagamentos-list-container').innerHTML = '';
+            if (o.pagamentos_json && o.pagamentos_json.length > 0) {
+                o.pagamentos_json.forEach(p => addPagamentoRow(p.tipo, p.valor, p.parcelas));
+            } else {
+                addPagamentoRow();
+            }
 
             document.getElementById('equipments-list-container').innerHTML = '';
             if (o.equipamentos_json && o.equipamentos_json.length > 0) {
@@ -1595,6 +2057,7 @@
             document.getElementById('editor-title').textContent = `Editar Orçamento #${o.numero_orcamento}`;
             document.getElementById('editor-subtitle').textContent = o.cliente_nome || '';
             updateFormTotal();
+            setFormReadOnly(false);
             switchTab('orcamento-editor-tab');
         }
 
@@ -1740,7 +2203,9 @@
             }
             
             // Observações financeiras (Forma de pagamento)
-            document.getElementById('pdf-condicoes-pag').innerHTML = o.condicoes_pagamento ? o.condicoes_pagamento.replace(/\n/g, '<br>') : 'A COMBINAR.';
+            const pagamentosTexto = (o.pagamentos_json && o.pagamentos_json.length > 0) ? formatarPagamentosTexto(o.pagamentos_json) : '';
+            const condicoesFinal = [pagamentosTexto, o.condicoes_pagamento].filter(Boolean).join('\n');
+            document.getElementById('pdf-condicoes-pag').innerHTML = condicoesFinal ? condicoesFinal.replace(/\n/g, '<br>') : 'A COMBINAR.';
 
             // Data por extenso
             const dataEmissao = new Date(o.data_emissao + 'T00:00:00');
