@@ -657,6 +657,10 @@
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor dos equipamentos</label>
                             <input type="number" step="0.01" id="form-val-equip" oninput="updateFormTotal()" placeholder="0,00" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                            <div class="flex items-center justify-between mt-1">
+                                <span id="equipments-suggested-total" class="text-xs text-slate-400"></span>
+                                <button type="button" onclick="aplicarSomaSugeridaEquipamentos()" class="text-xs font-bold text-amber-600 hover:text-amber-700">Usar soma dos itens</button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor da mão de obra</label>
@@ -807,22 +811,23 @@
 
                     <!-- Validade -->
                     <tr>
-                        <td colspan="2" class="validade">
+                        <td colspan="3" class="validade">
                             PROPOSTA VÁLIDA ATÉ: <span id="pdf-validade">23/07/2025</span>
                         </td>
                     </tr>
 
                     <!-- Título Seção 1 (fixo, conforme modelo original) -->
                     <tr>
-                        <td colspan="2" class="titulo-amarelo" id="pdf-secao-titulo-1">
+                        <td colspan="3" class="titulo-amarelo" id="pdf-secao-titulo-1">
                             EQUIPAMENTO(S)
                         </td>
                     </tr>
 
                     <!-- Tabela Dinâmica de Componentes -->
                     <tr style="background:#0f172a; font-weight:700;">
-                        <th style="width: 15%; text-align:center; color:#fbbf24; border-color:#0f172a; font-size:10.5px; letter-spacing:0.4px;">QTD</th>
+                        <th style="width: 12%; text-align:center; color:#fbbf24; border-color:#0f172a; font-size:10.5px; letter-spacing:0.4px;">QTD</th>
                         <th style="color:#fbbf24; border-color:#0f172a; font-size:10.5px; letter-spacing:0.4px;">DESCRIÇÃO</th>
+                        <th style="width: 20%; text-align:right; color:#fbbf24; border-color:#0f172a; font-size:10.5px; letter-spacing:0.4px;">VALOR</th>
                     </tr>
 
                     <!-- Elemento contêiner onde injetamos as linhas de equipamento -->
@@ -832,7 +837,7 @@
 
                     <!-- Linha Spacer de altura controlada -->
                     <tr class="area-equipamentos">
-                        <td colspan="2" style="background:#fff; border-bottom:1px solid #e2e8f0;"></td>
+                        <td colspan="3" style="background:#fff; border-bottom:1px solid #e2e8f0;"></td>
                     </tr>
 
                     <!-- Rodapé da Seção 1 -->
@@ -1739,22 +1744,52 @@
         }
 
         // LINHAS DINÂMICAS DE EQUIPAMENTOS (estilo PDV: catálogo + cadastro rápido)
-        function addEquipmentRow(qtd = 1, desc = "") {
+        // preco: valor do item específico NESTE orçamento (independe do preço cadastrado no catálogo)
+        // mostrarPreco: controla se o preço do item aparece impresso no orçamento (PDF/DOCX).
+        //   O preço SEMPRE entra na soma do total de equipamentos, mesmo quando oculto na impressão.
+        function addEquipmentRow(qtd = 1, desc = "", preco = 0, mostrarPreco = true) {
             const container = document.getElementById('equipments-list-container');
             const rowId = 'eq-row-' + Date.now() + Math.floor(Math.random() * 1000);
             const div = document.createElement('div');
             div.id = rowId;
             div.className = "flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200";
             div.innerHTML = `
-                <input type="number" placeholder="QTD" min="1" value="${qtd}" class="eq-qtd w-16 px-2 py-1 rounded border border-slate-300 text-sm font-bold text-center font-mono">
+                <input type="number" placeholder="QTD" min="1" value="${qtd}" class="eq-qtd w-16 px-2 py-1 rounded border border-slate-300 text-sm font-bold text-center font-mono" onchange="updateEquipmentsSuggestedTotal()">
                 <input type="text" list="produtos-datalist" placeholder="Código ou descrição do item" value="${desc}" class="eq-desc flex-grow px-2 py-1 rounded border border-slate-300 text-sm font-mono" oninput="checkNovoItemRow('${rowId}')">
                 <span id="${rowId}-marca-badge" class="hidden shrink-0 px-2 py-1 rounded bg-slate-200 text-slate-700 text-xs font-bold uppercase"></span>
+                <input type="number" step="0.01" min="0" placeholder="Preço" value="${preco || ''}" class="eq-preco w-28 px-2 py-1 rounded border border-slate-300 text-sm font-mono" onchange="updateEquipmentsSuggestedTotal()">
+                <label class="shrink-0 flex items-center gap-1 text-xs text-slate-600 select-none" title="Se marcado, o preço deste item aparece impresso no orçamento">
+                    <input type="checkbox" class="eq-mostrar-preco" ${mostrarPreco ? 'checked' : ''}>
+                    Exibir preço
+                </label>
                 <button type="button" onclick="openCatalogSelectorCard('${rowId}')" title="Buscar no catálogo" class="shrink-0 px-2.5 py-1 rounded bg-slate-900 text-white hover:bg-slate-800 transition-colors"><i class="fa-solid fa-barcode"></i></button>
                 <button type="button" id="${rowId}-btn-novo" onclick="cadastrarItemRapido('${rowId}')" title="Item não cadastrado — adicionar ao catálogo" class="hidden shrink-0 px-2.5 py-1 rounded bg-amber-400 text-slate-950 hover:bg-amber-500 transition-colors"><i class="fa-solid fa-plus"></i></button>
                 <button type="button" onclick="removeEquipmentRow('${rowId}')" class="text-red-500 hover:text-red-700 px-2"><i class="fa-solid fa-trash"></i></button>
             `;
             container.appendChild(div);
             if (desc) checkNovoItemRow(rowId);
+            updateEquipmentsSuggestedTotal();
+        }
+
+        // Soma qtd × preço de todas as linhas de equipamentos e mostra como sugestão
+        // ao lado do campo de total (que continua editável manualmente).
+        function updateEquipmentsSuggestedTotal() {
+            const list = getEquipmentsList();
+            const soma = list.reduce((acc, eq) => acc + (eq.qtd * eq.preco), 0);
+            const el = document.getElementById('equipments-suggested-total');
+            if (el) {
+                el.textContent = soma > 0
+                    ? `Soma sugerida dos itens: R$ ${soma.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                    : '';
+            }
+        }
+
+        // Preenche o campo de total de equipamentos com a soma sugerida das linhas.
+        function aplicarSomaSugeridaEquipamentos() {
+            const list = getEquipmentsList();
+            const soma = list.reduce((acc, eq) => acc + (eq.qtd * eq.preco), 0);
+            document.getElementById('form-val-equip').value = soma.toFixed(2);
+            updateFormTotal();
         }
 
         // Atualiza o badge de marca ao lado do item, quando houver marca cadastrada (diferente de "Outros")
@@ -1791,7 +1826,7 @@
             const desc = row.querySelector('.eq-desc').value.trim();
             if (!desc) return;
             try {
-                const { error } = await supabaseClient.from('produtos_servicos').insert({ descricao: desc, tipo: 'Produto', valor_unitario: 0 });
+                const { error } = await supabaseClient.from('produtos_servicos').insert({ descricao: desc, categoria: '', marca: '', codigo: '', preco: 0 });
                 if (error) throw error;
                 await syncFromSupabase();
                 document.getElementById(rowId + '-btn-novo').classList.add('hidden');
@@ -1835,7 +1870,7 @@
                 <button type="button" onclick="selecionarItemCatalogo('${p.id}')"
                     class="text-left p-3 rounded-lg border border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition-colors bg-white">
                     <div class="font-bold text-slate-900 text-xs font-mono">${p.descricao}</div>
-                    <div class="text-xs text-slate-500 mt-1">${p.tipo || 'Item'}${p.valor_unitario ? ' · R$ ' + Number(p.valor_unitario).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}</div>
+                    <div class="text-xs text-slate-500 mt-1">${p.categoria || 'Item'}${p.preco ? ' · R$ ' + Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}</div>
                 </button>
             `).join('');
         }
@@ -1846,7 +1881,14 @@
             const row = document.getElementById(catalogSelectorTargetRow);
             if (row) {
                 row.querySelector('.eq-desc').value = p.descricao;
+                // Sugere o preço cadastrado no catálogo, mas o valor continua editável
+                // e vale só para este orçamento — não altera o preço do catálogo.
+                const precoInput = row.querySelector('.eq-preco');
+                if (precoInput && !precoInput.value && p.preco) {
+                    precoInput.value = Number(p.preco).toFixed(2);
+                }
                 checkNovoItemRow(catalogSelectorTargetRow);
+                updateEquipmentsSuggestedTotal();
             }
             closeCatalogSelectorCard();
         }
@@ -1858,7 +1900,9 @@
             for (let r of rows) {
                 const qtd = parseInt(r.querySelector('.eq-qtd').value) || 1;
                 const desc = r.querySelector('.eq-desc').value.trim();
-                if (desc) list.push({ qtd, desc });
+                const preco = parseFloat(r.querySelector('.eq-preco').value) || 0;
+                const mostrarPreco = r.querySelector('.eq-mostrar-preco').checked;
+                if (desc) list.push({ qtd, desc, preco, mostrarPreco });
             }
             return list;
         }
@@ -2195,11 +2239,12 @@
             document.getElementById('equipments-list-container').innerHTML = '';
             if (o.equipamentos_json && o.equipamentos_json.length > 0) {
                 o.equipamentos_json.forEach(eq => {
-                    addEquipmentRow(eq.qtd, eq.desc);
+                    addEquipmentRow(eq.qtd, eq.desc, eq.preco || 0, eq.mostrarPreco !== false);
                 });
             } else {
                 addEquipmentRow(1, "");
             }
+            updateEquipmentsSuggestedTotal();
 
             document.getElementById('form-validade-select').value = 'custom';
             document.getElementById('validade-custom-container').classList.remove('hidden');
@@ -2322,9 +2367,15 @@
                 const marca = produtoCatalogo?.marca?.trim();
                 const temMarcaVisivel = marca && marca.toUpperCase() !== 'OUTROS';
                 const descComMarca = temMarcaVisivel ? `${eq.desc.toUpperCase()} — ${marca.toUpperCase()}` : eq.desc.toUpperCase();
+                // O preço só é exibido na impressão quando "mostrarPreco" estiver marcado.
+                // Ele sempre entra na soma do total de equipamentos, mesmo quando oculto aqui.
+                const valorTexto = (eq.mostrarPreco !== false && eq.preco)
+                    ? 'R$ ' + Number(eq.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                    : '';
                 tr.innerHTML = `
                     <td class="centralizado" style="font-weight:bold;">${eq.qtd}</td>
                     <td style="font-weight:bold;">${descComMarca}</td>
+                    <td style="font-weight:bold; text-align:right;">${valorTexto}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2525,11 +2576,16 @@
             const eqList = o.equipamentos_json || [];
 
             // Linhas da tabela de equipamentos
+            // O preço só é impresso quando "mostrarPreco" estiver marcado, mas sempre
+            // entra na soma do total de equipamentos (valor_equipamentos).
             const linhasEquipamentos = eqList.map((eq) => {
                 const produtoCatalogo = localCatalog.find(p => p.descricao && p.descricao.toLowerCase() === (eq.desc || '').toLowerCase());
                 const marca = produtoCatalogo?.marca?.trim();
                 const temMarcaVisivel = marca && marca.toUpperCase() !== 'OUTROS';
                 const descComMarca = temMarcaVisivel ? `${eq.desc.toUpperCase()} — ${marca.toUpperCase()}` : (eq.desc || '').toUpperCase();
+                const valorTexto = (eq.mostrarPreco !== false && eq.preco)
+                    ? 'R$ ' + Number(eq.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                    : '';
                 return new TableRow({
                     children: [
                         new TableCell({
@@ -2537,8 +2593,12 @@
                             children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(eq.qtd), bold: true })] })]
                         }),
                         new TableCell({
-                            width: { size: 88, type: WidthType.PERCENTAGE },
+                            width: { size: 68, type: WidthType.PERCENTAGE },
                             children: [new Paragraph({ children: [new TextRun({ text: descComMarca, bold: true })] })]
+                        }),
+                        new TableCell({
+                            width: { size: 20, type: WidthType.PERCENTAGE },
+                            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: valorTexto, bold: true })] })]
                         })
                     ]
                 });
@@ -2548,7 +2608,8 @@
                 linhasEquipamentos.push(new TableRow({
                     children: [
                         new TableCell({ width: { size: 12, type: WidthType.PERCENTAGE }, children: [new Paragraph('-')] }),
-                        new TableCell({ width: { size: 88, type: WidthType.PERCENTAGE }, children: [new Paragraph('SEM EQUIPAMENTOS CADASTRADOS')] })
+                        new TableCell({ width: { size: 68, type: WidthType.PERCENTAGE }, children: [new Paragraph('SEM EQUIPAMENTOS CADASTRADOS')] }),
+                        new TableCell({ width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph('')] })
                     ]
                 }));
             }
@@ -2565,9 +2626,14 @@
                                 children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'QTD', bold: true, color: 'FBBF24' })] })]
                             }),
                             new TableCell({
-                                width: { size: 88, type: WidthType.PERCENTAGE },
+                                width: { size: 68, type: WidthType.PERCENTAGE },
                                 shading: { type: ShadingType.CLEAR, fill: "0F172A" },
                                 children: [new Paragraph({ children: [new TextRun({ text: 'EQUIPAMENTO(S)', bold: true, color: 'FBBF24' })] })]
+                            }),
+                            new TableCell({
+                                width: { size: 20, type: WidthType.PERCENTAGE },
+                                shading: { type: ShadingType.CLEAR, fill: "0F172A" },
+                                children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'VALOR', bold: true, color: 'FBBF24' })] })]
                             })
                         ]
                     }),
