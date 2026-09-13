@@ -8,7 +8,7 @@ export function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(tabId).classList.remove('hidden');
 
-    const tabs = ['dashboard-tab', 'orcamentos-tab', 'clientes-tab', 'produtos-tab'];
+    const tabs = ['dashboard-tab', 'orcamentos-tab', 'clientes-tab', 'produtos-tab', 'projetos-tab'];
     tabs.forEach(t => {
         const btn = document.getElementById(`nav-${t}`);
         if (t === tabId) {

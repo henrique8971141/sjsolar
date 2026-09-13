@@ -221,6 +221,9 @@
             <button onclick="switchTab('produtos-tab')" id="nav-produtos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
                 <i class="fa-solid fa-tags w-4 text-center"></i> <span class="sidebar-label">Catálogo</span>
             </button>
+            <button onclick="switchTab('projetos-tab')" id="nav-projetos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
+                <i class="fa-solid fa-diagram-project w-4 text-center"></i> <span class="sidebar-label">Projetos</span>
+            </button>
         </nav>
     </aside>
 
@@ -356,6 +359,78 @@
                 </table>
             </div>
         </section>
+
+        <!-- ABA: PROJETOS -->
+        <section id="projetos-tab" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider">Gestão de Projetos</h3>
+                <button type="button" onclick="openProjetoPageModal()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-plus mr-1"></i> Novo Projeto
+                </button>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                            <th class="px-6 py-4">Nome</th>
+                            <th class="px-6 py-4">Cliente</th>
+                            <th class="px-6 py-4">Responsável</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4">Criado em</th>
+                            <th class="px-6 py-4 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projetos-page-list-body" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- MODAL: NOVO/EDITAR PROJETO -->
+        <div id="projeto-page-modal-overlay" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+                    <h3 id="projeto-page-modal-title" class="font-bold text-slate-900">Novo Projeto</h3>
+                    <button type="button" onclick="closeProjetoPageModal()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nome do Projeto *</label>
+                        <input type="text" id="proj-page-nome" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cliente *</label>
+                        <select id="proj-page-cliente-id" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            <option value="">Selecione um cliente...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Responsável</label>
+                        <input type="text" id="proj-page-responsavel" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
+                        <select id="proj-page-status" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            <option value="Rascunho">Rascunho</option>
+                            <option value="Em orçamento">Em orçamento</option>
+                            <option value="Proposta enviada">Proposta enviada</option>
+                            <option value="Aprovado">Aprovado</option>
+                            <option value="Em execução">Em execução</option>
+                            <option value="Concluído">Concluído</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Observações</label>
+                        <textarea id="proj-page-observacoes" rows="3" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-slate-200 flex justify-end gap-2">
+                    <button type="button" onclick="closeProjetoPageModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-300 transition-colors">Cancelar</button>
+                    <button type="button" id="proj-page-btn-save" onclick="saveProjetoPage()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Salvar</button>
+                </div>
+            </div>
+        </div>
 
         <!-- ABA 4: CATÁLOGO DE PRODUTOS E MÃO DE OBRA -->
         <section id="produtos-tab" class="tab-content hidden space-y-6">
@@ -945,7 +1020,7 @@
     </div>
 
     <!-- SCRIPT DE EXECUÇÃO -->
-    <script type="module" src="./main.js"></script>
+  <script type="module" src='./main.js'></script>
 </body>
 
 </html>

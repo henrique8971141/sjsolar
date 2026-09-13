@@ -10,7 +10,7 @@ import { renderOrcamentos } from './orcamentos-list.js';
 import { renderClientes } from './clientes.js';
 import { renderCatalog } from './catalogo.js';
 import { populateClienteDropdown } from './clientes.js';
-import { populateProjetoDropdowns } from './projetos.js';
+import { populateProjetoDropdowns, renderProjetosPage } from './projetos.js';
 import { updateDatalist } from './catalogo.js';
 
 export async function initSupabase() {
@@ -42,7 +42,12 @@ export async function syncFromSupabase() {
             cliente_id: p.cliente_id,
             cliente_nome: p.clientes?.nome || '',
             nome: p.nome,
-            descricao: p.descricao || ''
+            descricao: p.descricao || '',
+            responsavel: p.responsavel || '',
+            status: p.status || 'Rascunho',
+            observacoes: p.observacoes || '',
+            created_at: p.created_at,
+            updated_at: p.updated_at
         }));
 
         // Sincronizar Catálogo
@@ -95,6 +100,7 @@ export async function syncFromSupabase() {
         renderOrcamentos();
         renderClientes();
         renderCatalog();
+        renderProjetosPage();
         populateClienteDropdown();
         populateProjetoDropdowns();
         updateDatalist();

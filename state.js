@@ -29,5 +29,6 @@ export const state = {
     filtroOrcamentoAtivo: 'todos',
     projetosExpandidos: new Set(),
     editingClienteId: null,
+    editingProjetoPageId: null,
     catalogSelectorTargetRow: null
 };

@@ -49,7 +49,12 @@ import {
     openInlineProjetoForm,
     closeInlineProjetoForm,
     saveInlineProjeto,
-    deleteProjeto
+    deleteProjeto,
+    openProjetoPageModal,
+    closeProjetoPageModal,
+    editProjetoPage,
+    saveProjetoPage,
+    deleteProjetoPage
 } from './projetos.js';
 
 // ---- catalogo.js ----
@@ -139,6 +144,11 @@ window.openInlineProjetoForm = openInlineProjetoForm;
 window.closeInlineProjetoForm = closeInlineProjetoForm;
 window.saveInlineProjeto = saveInlineProjeto;
 window.deleteProjeto = deleteProjeto;
+window.openProjetoPageModal = openProjetoPageModal;
+window.closeProjetoPageModal = closeProjetoPageModal;
+window.editProjetoPage = editProjetoPage;
+window.saveProjetoPage = saveProjetoPage;
+window.deleteProjetoPage = deleteProjetoPage;
 
 // catalogo.js
 window.saveQuickItem = saveQuickItem;

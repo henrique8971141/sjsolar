@@ -76,3 +76,122 @@ export async function deleteProjeto(id) {
         alert(err.message);
     }
 }
+
+// ============================================================
+// ABA "PROJETOS" — CRUD completo (listagem, modal criar/editar, exclusão)
+// ============================================================
+
+function formatarDataCriacao(isoString) {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('pt-BR');
+}
+
+export function renderProjetosPage() {
+    const body = document.getElementById('projetos-page-list-body');
+    if (!body) return;
+    body.innerHTML = '';
+    state.localProjetos.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition-colors";
+        tr.innerHTML = `
+            <td class="px-6 py-4 font-bold text-slate-900">${p.nome}</td>
+            <td class="px-6 py-4">${p.cliente_nome || 'Sem cliente'}</td>
+            <td class="px-6 py-4">${p.responsavel || '-'}</td>
+            <td class="px-6 py-4">${p.status || 'Rascunho'}</td>
+            <td class="px-6 py-4 text-xs text-slate-500">${formatarDataCriacao(p.created_at)}</td>
+            <td class="px-6 py-4 text-center">
+                <button onclick="editProjetoPage('${p.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"><i class="fa-solid fa-pen"></i></button>
+                <button onclick="deleteProjetoPage('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        `;
+        body.appendChild(tr);
+    });
+}
+
+function populateProjetoPageClienteSelect() {
+    const select = document.getElementById('proj-page-cliente-id');
+    if (!select) return;
+    const atual = select.value;
+    select.innerHTML = '<option value="">Selecione um cliente...</option>' +
+        state.localClientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    select.value = atual;
+}
+
+export function openProjetoPageModal() {
+    state.editingProjetoPageId = null;
+    populateProjetoPageClienteSelect();
+    document.getElementById('projeto-page-modal-title').textContent = 'Novo Projeto';
+    document.getElementById('proj-page-btn-save').textContent = 'Salvar';
+    document.getElementById('proj-page-nome').value = '';
+    document.getElementById('proj-page-cliente-id').value = '';
+    document.getElementById('proj-page-responsavel').value = '';
+    document.getElementById('proj-page-status').value = 'Rascunho';
+    document.getElementById('proj-page-observacoes').value = '';
+    document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
+}
+
+export function closeProjetoPageModal() {
+    document.getElementById('projeto-page-modal-overlay').classList.add('hidden');
+    state.editingProjetoPageId = null;
+}
+
+export function editProjetoPage(id) {
+    const p = state.localProjetos.find(x => String(x.id) === String(id));
+    if (!p) return;
+    state.editingProjetoPageId = id;
+    populateProjetoPageClienteSelect();
+    document.getElementById('projeto-page-modal-title').textContent = 'Editar Projeto';
+    document.getElementById('proj-page-btn-save').textContent = 'Salvar Alterações';
+    document.getElementById('proj-page-nome').value = p.nome || '';
+    document.getElementById('proj-page-cliente-id').value = p.cliente_id || '';
+    document.getElementById('proj-page-responsavel').value = p.responsavel || '';
+    document.getElementById('proj-page-status').value = p.status || 'Rascunho';
+    document.getElementById('proj-page-observacoes').value = p.observacoes || '';
+    document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
+}
+
+export async function saveProjetoPage() {
+    const nome = document.getElementById('proj-page-nome').value.trim();
+    const cliente_id = document.getElementById('proj-page-cliente-id').value;
+    const responsavel = document.getElementById('proj-page-responsavel').value.trim();
+    const status = document.getElementById('proj-page-status').value;
+    const observacoes = document.getElementById('proj-page-observacoes').value.trim();
+
+    if (!nome || !cliente_id) {
+        alert("Nome do projeto e Cliente são obrigatórios.");
+        return;
+    }
+
+    try {
+        if (state.editingProjetoPageId) {
+            const { error } = await state.supabaseClient
+                .from('projetos')
+                .update({ nome, cliente_id, responsavel, status, observacoes, updated_at: new Date().toISOString() })
+                .eq('id', state.editingProjetoPageId);
+            if (error) throw error;
+        } else {
+            const { error } = await state.supabaseClient
+                .from('projetos')
+                .insert({ nome, cliente_id, responsavel, status, observacoes });
+            if (error) throw error;
+        }
+
+        closeProjetoPageModal();
+        await syncFromSupabase();
+    } catch (err) {
+        alert("Erro ao salvar projeto: " + err.message);
+    }
+}
+
+export async function deleteProjetoPage(id) {
+    if (!confirm("Isso removerá o vínculo dos orçamentos com este projeto (eles não serão apagados). Confirmar exclusão?")) return;
+    try {
+        const { error } = await state.supabaseClient.from('projetos').delete().eq('id', id);
+        if (error) throw error;
+        await syncFromSupabase();
+    } catch (err) {
+        alert(err.message);
+    }
+}
