@@ -5,6 +5,7 @@
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
+import { initClienteAutocomplete } from './cliente-autocomplete.js';
 
 // Filtra o select de projeto do orçamento pelos projetos do cliente selecionado
 export function atualizarProjetosDoCliente(clienteId) {
@@ -23,6 +24,8 @@ export function populateProjetoDropdowns() {
 }
 
 // Abre o mini-formulário de criação rápida de projeto, vinculado ao cliente já selecionado
+let clienteAutocompleteProjetoPage = null;
+
 export function openInlineProjetoForm() {
     const clienteId = document.getElementById('form-cliente-id').value;
     if (!clienteId) {
@@ -110,18 +113,21 @@ export function renderProjetosPage() {
     });
 }
 
-function populateProjetoPageClienteSelect() {
-    const select = document.getElementById('proj-page-cliente-id');
-    if (!select) return;
-    const atual = select.value;
-    select.innerHTML = '<option value="">Selecione um cliente...</option>' +
-        state.localClientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
-    select.value = atual;
+function ensureProjetoPageClienteAutocomplete() {
+    if (!clienteAutocompleteProjetoPage) {
+        clienteAutocompleteProjetoPage = initClienteAutocomplete('proj-page-cliente-autocomplete', {
+            getClienteAtualId: () => document.getElementById('proj-page-cliente-id').value,
+            onSelect: (clienteId) => {
+                document.getElementById('proj-page-cliente-id').value = clienteId;
+            }
+        });
+    }
+    return clienteAutocompleteProjetoPage;
 }
 
 export function openProjetoPageModal() {
     state.editingProjetoPageId = null;
-    populateProjetoPageClienteSelect();
+    ensureProjetoPageClienteAutocomplete();
     document.getElementById('projeto-page-modal-title').textContent = 'Novo Projeto';
     document.getElementById('proj-page-btn-save').textContent = 'Salvar';
     document.getElementById('proj-page-nome').value = '';
@@ -129,6 +135,7 @@ export function openProjetoPageModal() {
     document.getElementById('proj-page-responsavel').value = '';
     document.getElementById('proj-page-status').value = 'Rascunho';
     document.getElementById('proj-page-observacoes').value = '';
+    clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
 }
 
@@ -141,7 +148,7 @@ export function editProjetoPage(id) {
     const p = state.localProjetos.find(x => String(x.id) === String(id));
     if (!p) return;
     state.editingProjetoPageId = id;
-    populateProjetoPageClienteSelect();
+    ensureProjetoPageClienteAutocomplete();
     document.getElementById('projeto-page-modal-title').textContent = 'Editar Projeto';
     document.getElementById('proj-page-btn-save').textContent = 'Salvar Alterações';
     document.getElementById('proj-page-nome').value = p.nome || '';
@@ -149,6 +156,7 @@ export function editProjetoPage(id) {
     document.getElementById('proj-page-responsavel').value = p.responsavel || '';
     document.getElementById('proj-page-status').value = p.status || 'Rascunho';
     document.getElementById('proj-page-observacoes').value = p.observacoes || '';
+    clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
 }
 

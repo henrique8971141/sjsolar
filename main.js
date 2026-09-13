@@ -17,9 +17,6 @@ import {
     aplicarArredondamento,
     openOrcamentoModal,
     closeOrcamentoEditor,
-    openInlineClienteForm,
-    closeInlineClienteForm,
-    saveInlineCliente,
     handleFormSubmit,
     viewOrcamento,
     habilitarEdicaoOrcamento,
@@ -38,10 +35,7 @@ import {
     saveQuickCliente,
     editCliente,
     deleteCliente,
-    openClienteSelectorCard,
-    closeClienteSelectorCard,
-    renderClienteSelectorList,
-    selecionarClienteCard
+    initClientesTabUfSelect
 } from './clientes.js';
 
 // ---- projetos.js ----
@@ -94,6 +88,7 @@ import { exportToDOCX } from './exportDocx.js';
 // Inicializa a conexão com o Supabase assim que o DOM estiver pronto
 window.addEventListener('DOMContentLoaded', () => {
     initSupabase();
+    initClientesTabUfSelect();
 });
 
 // ============================================================
@@ -114,9 +109,6 @@ window.updateFormTotal = updateFormTotal;
 window.aplicarArredondamento = aplicarArredondamento;
 window.openOrcamentoModal = openOrcamentoModal;
 window.closeOrcamentoEditor = closeOrcamentoEditor;
-window.openInlineClienteForm = openInlineClienteForm;
-window.closeInlineClienteForm = closeInlineClienteForm;
-window.saveInlineCliente = saveInlineCliente;
 window.handleFormSubmit = handleFormSubmit;
 window.viewOrcamento = viewOrcamento;
 window.habilitarEdicaoOrcamento = habilitarEdicaoOrcamento;
@@ -134,10 +126,6 @@ window.cancelEditCliente = cancelEditCliente;
 window.saveQuickCliente = saveQuickCliente;
 window.editCliente = editCliente;
 window.deleteCliente = deleteCliente;
-window.openClienteSelectorCard = openClienteSelectorCard;
-window.closeClienteSelectorCard = closeClienteSelectorCard;
-window.renderClienteSelectorList = renderClienteSelectorList;
-window.selecionarClienteCard = selecionarClienteCard;
 
 // projetos.js
 window.openInlineProjetoForm = openInlineProjetoForm;

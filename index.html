@@ -329,14 +329,23 @@
             <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
                 <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider">Gestão de Clientes</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input type="text" id="cli-nome" placeholder="Nome Completo *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-nome" placeholder="Nome / Razão Social *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-cpf-cnpj" placeholder="CPF / CNPJ" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <input type="text" id="cli-telefone" placeholder="Telefone / WhatsApp" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <input type="email" id="cli-email" placeholder="E-mail" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <input type="text" id="cli-endereco" placeholder="Endereço de Instalação" class="md:col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="text" id="cli-cidade" placeholder="Cidade" class="col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                        <input type="text" id="cli-estado" maxlength="2" placeholder="UF" class="px-3 py-2 rounded-lg border border-slate-200 text-sm text-center uppercase focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-cep" placeholder="CEP *" maxlength="9" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-endereco" placeholder="Endereço *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-numero" placeholder="Número" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-complemento" placeholder="Complemento" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <input type="text" id="cli-bairro" placeholder="Bairro" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <select id="cli-estado" class="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="">UF *</option>
+                    </select>
+                    <div class="relative md:col-span-2">
+                        <input type="text" id="cli-cidade" placeholder="Cidade *" autocomplete="off" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <div id="cli-cidade-dropdown" class="hidden absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
                     </div>
+                    <textarea id="cli-observacoes" placeholder="Observações" rows="2" class="md:col-span-3 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
                 </div>
                 <div class="flex justify-end gap-2">
                     <button id="btn-cancel-cliente" onclick="cancelEditCliente()" class="hidden px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-300 transition-colors">Cancelar</button>
@@ -400,9 +409,8 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cliente *</label>
-                        <select id="proj-page-cliente-id" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="">Selecione um cliente...</option>
-                        </select>
+                        <input type="hidden" id="proj-page-cliente-id" required>
+                        <div id="proj-page-cliente-autocomplete"></div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Responsável</label>
@@ -551,16 +559,8 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente</label>
-                                <div class="flex gap-2">
-                                    <button type="button" onclick="openClienteSelectorCard()" id="btn-selecionar-cliente" class="w-full text-left px-3 py-2.5 rounded-lg border border-slate-200 hover:border-amber-400 bg-white text-sm transition-colors flex items-center justify-between gap-2">
-                                        <span id="btn-selecionar-cliente-label" class="text-slate-400">Selecionar cliente...</span>
-                                        <i class="fa-solid fa-chevron-down text-slate-400 text-xs"></i>
-                                    </button>
-                                    <select id="form-cliente-id" required class="hidden"></select>
-                                    <button type="button" onclick="openInlineClienteForm()" title="Cadastrar novo cliente" class="shrink-0 px-3 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
-                                        <i class="fa-solid fa-user-plus"></i>
-                                    </button>
-                                </div>
+                                <input type="hidden" id="form-cliente-id" required>
+                                <div id="form-cliente-autocomplete"></div>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Projeto</label>
@@ -586,23 +586,6 @@
                             </div>
                         </div>
 
-                        <!-- Formulário inline de novo cliente (oculto por padrão) -->
-                        <div id="inline-cliente-form" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold uppercase text-slate-600">Novo cliente rápido</span>
-                                <button type="button" onclick="closeInlineClienteForm()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <input type="text" id="inline-cli-nome" placeholder="Nome completo *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                                <input type="text" id="inline-cli-telefone" placeholder="Telefone / WhatsApp" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                                <input type="email" id="inline-cli-email" placeholder="E-mail" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                                <input type="text" id="inline-cli-endereco" placeholder="Endereço" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                                <input type="text" id="inline-cli-cidade" placeholder="Cidade" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                                <input type="text" id="inline-cli-estado" maxlength="2" placeholder="UF" class="px-3 py-2 rounded-lg border border-slate-200 text-sm uppercase">
-                            </div>
-                            <button type="button" onclick="saveInlineCliente()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar e Selecionar</button>
-                        </div>
-
                         <!-- Formulário inline de novo projeto (oculto por padrão) -->
                         <div id="inline-projeto-form" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
                             <div class="flex items-center justify-between">
@@ -615,25 +598,6 @@
                             </div>
                             <p class="text-[11px] text-slate-400">O projeto será vinculado ao cliente selecionado acima.</p>
                             <button type="button" onclick="saveInlineProjeto()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Criar e Selecionar</button>
-                        </div>
-
-                        <!-- Card/modal de seleção de cliente -->
-                        <div id="cliente-selector-overlay" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
-                                <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-2">
-                                    <span class="font-bold text-sm text-slate-700 uppercase tracking-wider">Selecionar Cliente</span>
-                                    <button type="button" onclick="closeClienteSelectorCard()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
-                                </div>
-                                <div class="p-3 border-b border-slate-200">
-                                    <input type="text" id="cliente-selector-search" oninput="renderClienteSelectorList()" placeholder="Buscar por nome, cidade..." class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-                                </div>
-                                <div id="cliente-selector-list" class="overflow-y-auto flex-grow p-2 space-y-1"></div>
-                                <div class="p-3 border-t border-slate-200">
-                                    <button type="button" onclick="closeClienteSelectorCard(); openInlineClienteForm();" class="w-full py-2 bg-slate-100 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-200 transition-colors">
-                                        <i class="fa-solid fa-user-plus mr-1"></i> Cadastrar novo cliente
-                                    </button>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- Card/modal PDV de seleção de produto do catálogo -->

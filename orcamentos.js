@@ -13,8 +13,8 @@
 import { state, SNIPPETS } from './state.js';
 import { syncFromSupabase } from './supabase.js';
 import { switchTab } from './ui.js';
-import { populateClienteDropdown, atualizarBotaoClienteSelecionado } from './clientes.js';
 import { atualizarProjetosDoCliente } from './projetos.js';
+import { initClienteAutocomplete } from './cliente-autocomplete.js';
 import { addEquipmentRow, updateEquipmentsSuggestedTotal, getEquipmentsList } from './equipamentos.js';
 import { addPagamentoRow, getPagamentosList } from './pagamentos.js';
 
@@ -87,6 +87,21 @@ export function openOrcamentoModal() {
     openOrcamentoEditor();
 }
 
+let clienteAutocompleteOrcamento = null;
+
+function ensureOrcamentoClienteAutocomplete() {
+    if (!clienteAutocompleteOrcamento) {
+        clienteAutocompleteOrcamento = initClienteAutocomplete('form-cliente-autocomplete', {
+            getClienteAtualId: () => document.getElementById('form-cliente-id').value,
+            onSelect: (clienteId) => {
+                document.getElementById('form-cliente-id').value = clienteId;
+                atualizarProjetosDoCliente(clienteId);
+            }
+        });
+    }
+    return clienteAutocompleteOrcamento;
+}
+
 export function openOrcamentoEditor() {
     if (state.localClientes.length === 0) {
         alert("Por favor, cadastre ao menos um cliente antes de gerar uma proposta.");
@@ -95,10 +110,11 @@ export function openOrcamentoEditor() {
     }
     document.getElementById('orcamento-form').reset();
     document.getElementById('form-observacoes').innerHTML = '';
-    populateClienteDropdown();
+    ensureOrcamentoClienteAutocomplete();
     document.getElementById('form-orcamento-id').value = '';
-    atualizarBotaoClienteSelecionado();
-    atualizarProjetosDoCliente(document.getElementById('form-cliente-id').value);
+    document.getElementById('form-cliente-id').value = '';
+    clienteAutocompleteOrcamento.refresh();
+    atualizarProjetosDoCliente('');
     document.getElementById('editor-title').textContent = "Novo Orçamento";
     document.getElementById('editor-subtitle').textContent = "Preencha os dados da proposta";
     document.getElementById('form-campo-extra-label').value = 'Estimativa de banhos/dia';
@@ -113,7 +129,6 @@ export function openOrcamentoEditor() {
     document.getElementById('validade-custom-container').classList.add('hidden');
     document.getElementById('equipments-list-container').innerHTML = '';
     document.getElementById('pagamentos-list-container').innerHTML = '';
-    closeInlineClienteForm();
     addEquipmentRow(1, "");
     addEquipmentRow(1, "");
     addPagamentoRow();
@@ -127,53 +142,6 @@ export function closeOrcamentoModal() {
 
 export function closeOrcamentoEditor() {
     switchTab('orcamentos-tab');
-}
-
-// Cliente inline (#5): permite cadastrar cliente sem sair do editor de orçamento
-export function openInlineClienteForm() {
-    document.getElementById('inline-cliente-form').classList.remove('hidden');
-}
-
-export function closeInlineClienteForm() {
-    const form = document.getElementById('inline-cliente-form');
-    if (!form) return;
-    form.classList.add('hidden');
-    ['inline-cli-nome', 'inline-cli-telefone', 'inline-cli-email', 'inline-cli-endereco', 'inline-cli-cidade', 'inline-cli-estado'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-}
-
-export async function saveInlineCliente() {
-    const nome = document.getElementById('inline-cli-nome').value.trim();
-    const telefone = document.getElementById('inline-cli-telefone').value.trim();
-    const email = document.getElementById('inline-cli-email').value.trim();
-    const endereco_completo = document.getElementById('inline-cli-endereco').value.trim();
-    const cidade = document.getElementById('inline-cli-cidade').value.trim();
-    const estado = document.getElementById('inline-cli-estado').value.trim();
-
-    if (!nome) {
-        alert("Nome é obrigatório.");
-        return;
-    }
-
-    try {
-        const { data, error } = await state.supabaseClient
-            .from('clientes')
-            .insert({ nome, telefone, email, endereco_completo, cidade, estado })
-            .select()
-            .single();
-        if (error) throw error;
-
-        await syncFromSupabase();
-        populateClienteDropdown();
-        document.getElementById('form-cliente-id').value = data.id;
-        atualizarBotaoClienteSelecionado();
-        atualizarProjetosDoCliente(data.id);
-        closeInlineClienteForm();
-    } catch (err) {
-        alert("Erro ao cadastrar cliente: " + err.message);
-    }
 }
 
 export async function handleFormSubmit(e) {
@@ -256,11 +224,10 @@ export function editOrcamento(id) {
     const o = state.localOrcamentos.find(item => item.id === id);
     if (!o) return;
 
-    populateClienteDropdown();
-    closeInlineClienteForm();
+    ensureOrcamentoClienteAutocomplete();
     document.getElementById('form-orcamento-id').value = o.id;
     document.getElementById('form-cliente-id').value = o.cliente_id;
-    atualizarBotaoClienteSelecionado();
+    clienteAutocompleteOrcamento.refresh();
     atualizarProjetosDoCliente(o.cliente_id);
     document.getElementById('form-projeto-id').value = o.projeto_id || '';
     document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;

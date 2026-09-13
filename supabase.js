@@ -9,7 +9,6 @@ import { renderDashboard } from './dashboard.js';
 import { renderOrcamentos } from './orcamentos-list.js';
 import { renderClientes } from './clientes.js';
 import { renderCatalog } from './catalogo.js';
-import { populateClienteDropdown } from './clientes.js';
 import { populateProjetoDropdowns, renderProjetosPage } from './projetos.js';
 import { updateDatalist } from './catalogo.js';
 
@@ -101,7 +100,6 @@ export async function syncFromSupabase() {
         renderClientes();
         renderCatalog();
         renderProjetosPage();
-        populateClienteDropdown();
         populateProjetoDropdowns();
         updateDatalist();
     } catch (err) {

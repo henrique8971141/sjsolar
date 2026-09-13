@@ -1,10 +1,12 @@
 // clientes.js
-// CRUD de clientes (listagem, edição inline, exclusão) e o card de seleção
-// de cliente usado dentro do editor de orçamento.
+// CRUD de clientes (listagem, edição inline com CEP/IBGE). O antigo
+// card de seleção de cliente (modal separado) foi substituído pelo
+// componente global de autocomplete em cliente-autocomplete.js — este
+// arquivo cuida só da aba "Clientes".
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
-import { atualizarProjetosDoCliente } from './projetos.js';
+import { buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios, UFS } from './localizacao.js';
 
 export function renderClientes() {
     const body = document.getElementById('clientes-list-body');
@@ -16,7 +18,7 @@ export function renderClientes() {
             <td class="px-6 py-4 font-bold text-slate-900">${c.nome}</td>
             <td class="px-6 py-4">${c.telefone || 'Sem telefone'}</td>
             <td class="px-6 py-4 text-slate-600">${c.email || 'N/A'}</td>
-            <td class="px-6 py-4 text-xs text-slate-500">${c.endereco_completo || ''}, ${c.cidade || ''}-${c.estado || ''}</td>
+            <td class="px-6 py-4 text-xs text-slate-500">${c.endereco_completo || ''}${c.numero ? ', ' + c.numero : ''}, ${c.cidade || ''}-${c.estado || ''}</td>
             <td class="px-6 py-4 text-center">
                 <button onclick="editCliente('${c.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"><i class="fa-solid fa-pen"></i></button>
                 <button onclick="deleteCliente('${c.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
@@ -26,16 +28,81 @@ export function renderClientes() {
     });
 }
 
+// Popula o <select> de UF da aba Clientes e liga CEP/IBGE (roda uma vez)
+export function initClientesTabUfSelect() {
+    const select = document.getElementById('cli-estado');
+    if (!select || select.dataset.populated) return;
+    UFS.forEach(uf => {
+        const opt = document.createElement('option');
+        opt.value = uf;
+        opt.textContent = uf;
+        select.appendChild(opt);
+    });
+    select.dataset.populated = '1';
+
+    select.addEventListener('change', () => {
+        document.getElementById('cli-cidade').value = '';
+        if (select.value) getMunicipiosPorUf(select.value);
+    });
+
+    const cepField = document.getElementById('cli-cep');
+    cepField.addEventListener('blur', async () => {
+        const endereco = await buscarEnderecoPorCep(cepField.value);
+        if (!endereco) return;
+        if (endereco.logradouro) document.getElementById('cli-endereco').value = endereco.logradouro;
+        if (endereco.bairro) document.getElementById('cli-bairro').value = endereco.bairro;
+        if (endereco.uf) {
+            select.value = endereco.uf;
+            await getMunicipiosPorUf(endereco.uf);
+        }
+        if (endereco.cidade) document.getElementById('cli-cidade').value = endereco.cidade;
+    });
+
+    const cidadeField = document.getElementById('cli-cidade');
+    const cidadeDropdown = document.getElementById('cli-cidade-dropdown');
+    const renderCidades = async () => {
+        if (!select.value) {
+            cidadeDropdown.innerHTML = '<div class="text-xs text-slate-400 px-3 py-2">Selecione a UF primeiro.</div>';
+            cidadeDropdown.classList.remove('hidden');
+            return;
+        }
+        const resultados = await buscarMunicipios(select.value, cidadeField.value);
+        cidadeDropdown.innerHTML = resultados.length === 0
+            ? '<div class="text-xs text-slate-400 px-3 py-2">Nenhuma cidade encontrada.</div>'
+            : resultados.map(nome => `<button type="button" data-cidade="${nome}" class="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors">${nome}</button>`).join('');
+        cidadeDropdown.querySelectorAll('[data-cidade]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                cidadeField.value = btn.dataset.cidade;
+                cidadeDropdown.classList.add('hidden');
+            });
+        });
+        cidadeDropdown.classList.remove('hidden');
+    };
+    cidadeField.addEventListener('focus', renderCidades);
+    cidadeField.addEventListener('input', renderCidades);
+    document.addEventListener('click', (e) => {
+        if (!cidadeField.contains(e.target) && !cidadeDropdown.contains(e.target)) {
+            cidadeDropdown.classList.add('hidden');
+        }
+    });
+}
+
 export function editCliente(id) {
     const c = state.localClientes.find(x => String(x.id) === String(id));
     if (!c) return;
     state.editingClienteId = id;
     document.getElementById('cli-nome').value = c.nome || '';
+    document.getElementById('cli-cpf-cnpj').value = c.cpf_cnpj || '';
     document.getElementById('cli-telefone').value = c.telefone || '';
     document.getElementById('cli-email').value = c.email || '';
+    document.getElementById('cli-cep').value = c.cep || '';
     document.getElementById('cli-endereco').value = c.endereco_completo || '';
-    document.getElementById('cli-cidade').value = c.cidade || '';
+    document.getElementById('cli-numero').value = c.numero || '';
+    document.getElementById('cli-complemento').value = c.complemento || '';
+    document.getElementById('cli-bairro').value = c.bairro || '';
     document.getElementById('cli-estado').value = c.estado || '';
+    document.getElementById('cli-cidade').value = c.cidade || '';
+    document.getElementById('cli-observacoes').value = c.observacoes || '';
 
     document.getElementById('btn-save-cliente').textContent = 'Salvar Alterações';
     document.getElementById('btn-cancel-cliente').classList.remove('hidden');
@@ -44,40 +111,52 @@ export function editCliente(id) {
 
 export function cancelEditCliente() {
     state.editingClienteId = null;
-    document.getElementById('cli-nome').value = '';
-    document.getElementById('cli-telefone').value = '';
-    document.getElementById('cli-email').value = '';
-    document.getElementById('cli-endereco').value = '';
-    document.getElementById('cli-cidade').value = '';
-    document.getElementById('cli-estado').value = '';
+    ['cli-nome', 'cli-cpf-cnpj', 'cli-telefone', 'cli-email', 'cli-cep', 'cli-endereco',
+        'cli-numero', 'cli-complemento', 'cli-bairro', 'cli-estado', 'cli-cidade', 'cli-observacoes'
+    ].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('btn-save-cliente').textContent = 'Cadastrar Novo Cliente';
     document.getElementById('btn-cancel-cliente').classList.add('hidden');
 }
 
 export async function saveQuickCliente() {
     const nome = document.getElementById('cli-nome').value.trim();
-    const telefone = document.getElementById('cli-telefone').value.trim();
-    const email = document.getElementById('cli-email').value.trim();
+    const cep = document.getElementById('cli-cep').value.trim();
     const endereco_completo = document.getElementById('cli-endereco').value.trim();
-    const cidade = document.getElementById('cli-cidade').value.trim();
     const estado = document.getElementById('cli-estado').value.trim();
+    const cidade = document.getElementById('cli-cidade').value.trim();
 
-    if (!nome) {
-        alert("Nome é obrigatório.");
-        return;
-    }
+    if (!nome) { alert("Nome / Razão Social é obrigatório."); return; }
+    if (!cep) { alert("CEP é obrigatório."); return; }
+    if (!endereco_completo) { alert("Endereço é obrigatório."); return; }
+    if (!estado) { alert("UF é obrigatória."); return; }
+    if (!cidade) { alert("Cidade é obrigatória."); return; }
+
+    const payload = {
+        nome,
+        cpf_cnpj: document.getElementById('cli-cpf-cnpj').value.trim(),
+        telefone: document.getElementById('cli-telefone').value.trim(),
+        email: document.getElementById('cli-email').value.trim(),
+        cep,
+        endereco_completo,
+        numero: document.getElementById('cli-numero').value.trim(),
+        complemento: document.getElementById('cli-complemento').value.trim(),
+        bairro: document.getElementById('cli-bairro').value.trim(),
+        estado,
+        cidade,
+        observacoes: document.getElementById('cli-observacoes').value.trim()
+    };
 
     try {
         if (state.editingClienteId) {
             const { error } = await state.supabaseClient
                 .from('clientes')
-                .update({ nome, telefone, email, endereco_completo, cidade, estado })
+                .update(payload)
                 .eq('id', state.editingClienteId);
             if (error) throw error;
         } else {
             const { error } = await state.supabaseClient
                 .from('clientes')
-                .insert({ nome, telefone, email, endereco_completo, cidade, estado });
+                .insert(payload);
             if (error) throw error;
         }
 
@@ -96,79 +175,5 @@ export async function deleteCliente(id) {
         await syncFromSupabase();
     } catch (err) {
         alert(err.message);
-    }
-}
-
-// CARD DE SELEÇÃO DE CLIENTE (usado no editor de orçamento)
-export function openClienteSelectorCard() {
-    document.getElementById('cliente-selector-overlay').classList.remove('hidden');
-    document.getElementById('cliente-selector-search').value = '';
-    renderClienteSelectorList();
-    document.getElementById('cliente-selector-search').focus();
-}
-
-export function closeClienteSelectorCard() {
-    document.getElementById('cliente-selector-overlay').classList.add('hidden');
-}
-
-export function renderClienteSelectorList() {
-    const query = document.getElementById('cliente-selector-search').value.toLowerCase();
-    const container = document.getElementById('cliente-selector-list');
-    const selecionadoId = document.getElementById('form-cliente-id').value;
-    const filtrados = state.localClientes.filter(c =>
-        !query ||
-        (c.nome && c.nome.toLowerCase().includes(query)) ||
-        (c.cidade && c.cidade.toLowerCase().includes(query))
-    );
-
-    if (filtrados.length === 0) {
-        container.innerHTML = '<div class="text-sm text-slate-400 text-center py-6">Nenhum cliente encontrado.</div>';
-        return;
-    }
-
-    container.innerHTML = filtrados.map(c => `
-        <button type="button" onclick="selecionarClienteCard('${c.id}')"
-            class="w-full text-left p-3 rounded-lg border ${String(c.id) === String(selecionadoId) ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'} transition-colors">
-            <div class="font-bold text-slate-900 text-sm">${c.nome}</div>
-            <div class="text-xs text-slate-500">${c.cidade || 'Sem cidade'}${c.telefone ? ' · ' + c.telefone : ''}</div>
-        </button>
-    `).join('');
-}
-
-export function selecionarClienteCard(id) {
-    document.getElementById('form-cliente-id').value = id;
-    atualizarBotaoClienteSelecionado();
-    atualizarProjetosDoCliente(id);
-    closeClienteSelectorCard();
-}
-
-// Atualiza o texto do botão de seleção de cliente conforme o select oculto
-export function atualizarBotaoClienteSelecionado() {
-    const id = document.getElementById('form-cliente-id').value;
-    const label = document.getElementById('btn-selecionar-cliente-label');
-    const c = state.localClientes.find(x => String(x.id) === String(id));
-    if (c) {
-        label.textContent = `${c.nome}${c.cidade ? ' (' + c.cidade + ')' : ''}`;
-        label.classList.remove('text-slate-400');
-        label.classList.add('text-slate-900', 'font-semibold');
-    } else {
-        label.textContent = 'Selecionar cliente...';
-        label.classList.add('text-slate-400');
-        label.classList.remove('text-slate-900', 'font-semibold');
-    }
-}
-
-export function populateClienteDropdown() {
-    const select = document.getElementById('form-cliente-id');
-    select.innerHTML = '';
-    state.localClientes.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `${c.nome} (${c.cidade || 'Sem Cidade'})`;
-        select.appendChild(opt);
-    });
-    if (!select.dataset.projetoListenerAttached) {
-        select.addEventListener('change', () => atualizarProjetosDoCliente(select.value));
-        select.dataset.projetoListenerAttached = '1';
     }
 }
