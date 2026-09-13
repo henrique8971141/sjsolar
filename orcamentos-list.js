@@ -1,311 +1,155 @@
-// orcamentos.js
-// Editor de orçamento (formulário completo): cálculo de totais, validade,
-// abrir/fechar o editor, cadastro inline de cliente, salvar (criar/editar),
-// visualizar, excluir, e os snippets/formatação do campo de observações.
+// orcamentos-list.js
+// Listagem e filtro de orçamentos na aba "Orçamentos": busca, filtro por
+// status, agrupamento por projeto (expansível). A parte de editor/formulário
+// do orçamento fica em orcamentos.js.
 //
-// Observação sobre o import circular com equipamentos.js: este arquivo usa
-// addEquipmentRow/updateEquipmentsSuggestedTotal (importados de
-// equipamentos.js), e equipamentos.js usa updateFormTotal (importado daqui).
-// Isso é seguro em ES Modules porque nenhuma das duas pontas usa o valor
-// importado no escopo top-level do módulo — só dentro de funções, que só
-// rodam depois que ambos os módulos já terminaram de carregar.
+// Observação sobre imports: funções como viewOrcamento, exportToPDF,
+// exportToDOCX, editOrcamento, deleteOrcamento e marcarOrcamentoPrincipal
+// são chamadas aqui apenas dentro de atributos onclick="..." do HTML gerado
+// como string. O próprio navegador resolve esses nomes em `window` no
+// momento do clique — por isso main.js precisa expô-los em window, mas este
+// arquivo não precisa importá-los.
 
-import { state, SNIPPETS } from './state.js';
-import { syncFromSupabase } from './supabase.js';
-import { switchTab } from './ui.js';
-import { atualizarProjetosDoCliente } from './projetos.js';
-import { initClienteAutocomplete } from './cliente-autocomplete.js';
-import { addEquipmentRow, updateEquipmentsSuggestedTotal, getEquipmentsList } from './equipamentos.js';
-import { addPagamentoRow, getPagamentosList } from './pagamentos.js';
+import { state } from './state.js';
+import { calcularTotalOrcamento } from './utils.js';
 
-export function handleValidadeChange() {
-    const valSelect = document.getElementById('form-validade-select').value;
-    const customContainer = document.getElementById('validade-custom-container');
-    if (valSelect === 'custom') {
-        customContainer.classList.remove('hidden');
-    } else {
-        customContainer.classList.add('hidden');
-    }
+// Um orçamento é expirado se a validade já passou e ele não foi finalizado
+export function isOrcamentoExpirado(o) {
+    if (!o.validade_proposta) return false;
+    if (o.status_execucao === 'Finalizado') return false;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const validade = new Date(o.validade_proposta + 'T00:00:00');
+    return validade < hoje;
 }
 
-export function getValidadeDias() {
-    const valSelect = document.getElementById('form-validade-select').value;
-    if (valSelect === 'custom') {
-        const customVal = parseInt(document.getElementById('form-validade-custom').value);
-        return isNaN(customVal) || customVal <= 0 ? 15 : customVal;
-    }
-    return parseInt(valSelect);
-}
-
-// Calcula subtotal, aplica desconto e devolve o total final
-export function calcularTotais() {
-    const valEquip = parseFloat(document.getElementById('form-val-equip').value) || 0;
-    const valMao = parseFloat(document.getElementById('form-val-mao').value) || 0;
-    const valOutros = parseFloat(document.getElementById('form-val-outros').value) || 0;
-    const subtotal = valEquip + valMao + valOutros;
-
-    const descontoValor = parseFloat(document.getElementById('form-desconto-valor').value) || 0;
-    const descontoTipo = document.getElementById('form-desconto-tipo').value;
-    let desconto = 0;
-    if (descontoTipo === 'percentual') {
-        desconto = subtotal * (descontoValor / 100);
-    } else {
-        desconto = descontoValor;
-    }
-    desconto = Math.min(desconto, subtotal);
-
-    const total = subtotal - desconto;
-    return { valEquip, valMao, valOutros, subtotal, desconto, descontoTipo, descontoValor, total };
-}
-
-export function updateFormTotal() {
-    const { subtotal, total } = calcularTotais();
-    document.getElementById('form-subtotal-display').textContent = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    document.getElementById('form-val-total').value = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-// Arredondamento automático (#13): ajusta "Outros valores" para que o total feche no valor desejado
-export function aplicarArredondamento() {
-    const alvo = parseFloat(document.getElementById('form-arredondar-para').value);
-    if (!alvo || alvo <= 0) {
-        alert("Informe um valor válido para arredondar.");
-        return;
-    }
-    const { valEquip, valMao, desconto } = calcularTotais();
-    // total = valEquip + valMao + valOutrosNovo - desconto  =>  valOutrosNovo = alvo + desconto - valEquip - valMao
-    const novoOutros = alvo + desconto - valEquip - valMao;
-    if (novoOutros < 0) {
-        alert("Não é possível arredondar para esse valor: equipamentos + mão de obra já ultrapassam o alvo. Ajuste manualmente.");
-        return;
-    }
-    document.getElementById('form-val-outros').value = novoOutros.toFixed(2);
-    updateFormTotal();
-}
-
-// Abre a página do editor de orçamento (em vez de modal)
-export function openOrcamentoModal() {
-    openOrcamentoEditor();
-}
-
-let clienteAutocompleteOrcamento = null;
-
-function ensureOrcamentoClienteAutocomplete() {
-    if (!clienteAutocompleteOrcamento) {
-        clienteAutocompleteOrcamento = initClienteAutocomplete('form-cliente-autocomplete', {
-            getClienteAtualId: () => document.getElementById('form-cliente-id').value,
-            onSelect: (clienteId) => {
-                document.getElementById('form-cliente-id').value = clienteId;
-                atualizarProjetosDoCliente(clienteId);
-            }
-        });
-    }
-    return clienteAutocompleteOrcamento;
-}
-
-export function openOrcamentoEditor() {
-    if (state.localClientes.length === 0) {
-        alert("Por favor, cadastre ao menos um cliente antes de gerar uma proposta.");
-        switchTab('clientes-tab');
-        return;
-    }
-    document.getElementById('orcamento-form').reset();
-    document.getElementById('form-observacoes').innerHTML = '';
-    ensureOrcamentoClienteAutocomplete();
-    document.getElementById('form-orcamento-id').value = '';
-    document.getElementById('form-cliente-id').value = '';
-    clienteAutocompleteOrcamento.refresh();
-    atualizarProjetosDoCliente('');
-    document.getElementById('editor-title').textContent = "Novo Orçamento";
-    document.getElementById('editor-subtitle').textContent = "Preencha os dados da proposta";
-    document.getElementById('form-campo-extra-label').value = 'Estimativa de banhos/dia';
-    document.getElementById('form-campo-extra-valor').value = '';
-    document.getElementById('form-desconto-valor').value = '';
-    document.getElementById('form-desconto-tipo').value = 'valor';
-    document.getElementById('form-margem-lucro').value = '';
-    document.getElementById('form-arredondar-para').value = '';
-    document.getElementById('form-subtotal-display').textContent = 'R$ 0,00';
-    document.getElementById('form-val-total').value = "R$ 0,00";
-    document.getElementById('form-data-emissao').value = new Date().toISOString().split('T')[0];
-    document.getElementById('validade-custom-container').classList.add('hidden');
-    document.getElementById('equipments-list-container').innerHTML = '';
-    document.getElementById('pagamentos-list-container').innerHTML = '';
-    addEquipmentRow(1, "");
-    addEquipmentRow(1, "");
-    addPagamentoRow();
-    setFormReadOnly(false);
-    switchTab('orcamento-editor-tab');
-}
-
-export function closeOrcamentoModal() {
-    closeOrcamentoEditor();
-}
-
-export function closeOrcamentoEditor() {
-    switchTab('orcamentos-tab');
-}
-
-export async function handleFormSubmit(e) {
-    if (e && e.preventDefault) e.preventDefault();
-
-    const id = document.getElementById('form-orcamento-id').value;
-    const dataEmissao = document.getElementById('form-data-emissao').value || new Date().toISOString().split('T')[0];
-    const validadeDias = getValidadeDias();
-    const validadeData = new Date(dataEmissao + 'T00:00:00');
-    validadeData.setDate(validadeData.getDate() + validadeDias);
-    const validadeStr = validadeData.toISOString().split('T')[0];
-
-    const { desconto, descontoTipo, descontoValor } = calcularTotais();
-
-    const orcamentoPayload = {
-        cliente_id: document.getElementById('form-cliente-id').value,
-        projeto_id: document.getElementById('form-projeto-id').value || null,
-        tipo_orcamento: document.getElementById('form-tipo-orcamento').value,
-        tipo_servico_detalhado: document.getElementById('form-tipo-detalhado').value,
-        campo_extra_label: document.getElementById('form-campo-extra-label').value.trim() || 'Estimativa de banhos/dia',
-        campo_extra_valor: document.getElementById('form-campo-extra-valor').value.trim(),
-        garantia_equipamento: document.getElementById('form-garantia-equip').value,
-        garantia_instalacao: document.getElementById('form-garantia-inst').value,
-        valor_equipamentos: parseFloat(document.getElementById('form-val-equip').value) || 0,
-        valor_mao_de_obra: parseFloat(document.getElementById('form-val-mao').value) || 0,
-        valor_outros: parseFloat(document.getElementById('form-val-outros').value) || 0,
-        desconto_valor: descontoValor,
-        desconto_tipo: descontoTipo,
-        margem_lucro: parseFloat(document.getElementById('form-margem-lucro').value) || 0,
-        status_comercial: document.getElementById('form-status-comercial').value,
-        status_execucao: document.getElementById('form-status-execucao').value,
-        condicoes_pagamento: document.getElementById('form-condicoes').value,
-        pagamentos_json: getPagamentosList(),
-        observacoes: document.getElementById('form-observacoes').innerHTML.trim(),
-        data_emissao: dataEmissao,
-        validade_proposta: validadeStr,
-        equipamentos_json: getEquipmentsList()
-    };
-
-    try {
-        if (id) {
-            const { error } = await state.supabaseClient.from('orcamentos').update(orcamentoPayload).eq('id', id);
-            if (error) throw error;
+export function setFiltroOrcamento(filtro) {
+    state.filtroOrcamentoAtivo = filtro;
+    document.querySelectorAll('.filtro-chip').forEach(btn => {
+        if (btn.dataset.filtro === filtro) {
+            btn.className = "filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-900 text-white transition-colors";
         } else {
-            const { error } = await state.supabaseClient.from('orcamentos').insert(orcamentoPayload);
-            if (error) throw error;
-        }
-        await syncFromSupabase();
-    } catch (err) {
-        alert("Erro ao gravar dados: " + err.message);
-    }
-    closeOrcamentoEditor();
-}
-
-export function viewOrcamento(id) {
-    editOrcamento(id);
-    setFormReadOnly(true);
-}
-
-export function habilitarEdicaoOrcamento() {
-    setFormReadOnly(false);
-}
-
-export function setFormReadOnly(readOnly) {
-    const form = document.getElementById('orcamento-form');
-    form.querySelectorAll('input, select, textarea, button').forEach(el => {
-        if (el.type === 'button' && (el.getAttribute('onclick') || '').includes('closeOrcamentoEditor')) return;
-        if (readOnly) {
-            el.setAttribute('disabled', 'disabled');
-        } else {
-            el.removeAttribute('disabled');
+            btn.className = "filtro-chip px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors";
         }
     });
-    document.getElementById('badge-somente-leitura').classList.toggle('hidden', !readOnly);
-    document.getElementById('btn-habilitar-edicao').classList.toggle('hidden', !readOnly);
-    document.getElementById('btn-salvar-orcamento').classList.toggle('hidden', readOnly);
+    renderOrcamentos();
 }
 
-export function editOrcamento(id) {
-    const o = state.localOrcamentos.find(item => item.id === id);
-    if (!o) return;
+export function renderOrcamentos() {
+    const query = document.getElementById('search-orcamentos').value.toLowerCase();
+    const listBody = document.getElementById('orcamentos-list-body');
+    listBody.innerHTML = '';
 
-    ensureOrcamentoClienteAutocomplete();
-    document.getElementById('form-orcamento-id').value = o.id;
-    document.getElementById('form-cliente-id').value = o.cliente_id;
-    clienteAutocompleteOrcamento.refresh();
-    atualizarProjetosDoCliente(o.cliente_id);
-    document.getElementById('form-projeto-id').value = o.projeto_id || '';
-    document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
-    document.getElementById('form-tipo-detalhado').value = o.tipo_servico_detalhado;
-    document.getElementById('form-campo-extra-label').value = o.campo_extra_label || 'Estimativa de banhos/dia';
-    document.getElementById('form-campo-extra-valor').value = o.campo_extra_valor || '';
-    document.getElementById('form-garantia-equip').value = o.garantia_equipamento || '';
-    document.getElementById('form-garantia-inst').value = o.garantia_instalacao || '';
-    document.getElementById('form-val-equip').value = o.valor_equipamentos;
-    document.getElementById('form-val-mao').value = o.valor_mao_de_obra;
-    document.getElementById('form-val-outros').value = o.valor_outros;
-    document.getElementById('form-desconto-valor').value = o.desconto_valor || '';
-    document.getElementById('form-desconto-tipo').value = o.desconto_tipo || 'valor';
-    document.getElementById('form-margem-lucro').value = o.margem_lucro || '';
-    document.getElementById('form-arredondar-para').value = '';
-    document.getElementById('form-status-comercial').value = o.status_comercial;
-    document.getElementById('form-status-execucao').value = o.status_execucao;
-    document.getElementById('form-condicoes').value = o.condicoes_pagamento || '';
-    document.getElementById('form-observacoes').innerHTML = o.observacoes || '';
-    document.getElementById('form-data-emissao').value = o.data_emissao || new Date().toISOString().split('T')[0];
+    const filtered = state.localOrcamentos.filter(o => {
+        const matchQuery = (o.numero_orcamento && o.numero_orcamento.toLowerCase().includes(query)) ||
+            (o.cliente_nome && o.cliente_nome.toLowerCase().includes(query));
+        if (!matchQuery) return false;
 
-    document.getElementById('pagamentos-list-container').innerHTML = '';
-    if (o.pagamentos_json && o.pagamentos_json.length > 0) {
-        o.pagamentos_json.forEach(p => addPagamentoRow(p.tipo, p.valor, p.parcelas));
-    } else {
-        addPagamentoRow();
-    }
+        if (state.filtroOrcamentoAtivo === 'todos') return true;
+        if (state.filtroOrcamentoAtivo === 'expirado') return isOrcamentoExpirado(o);
+        if (state.filtroOrcamentoAtivo === 'a_iniciar') return o.status_execucao === 'A iniciar' && !isOrcamentoExpirado(o);
+        if (state.filtroOrcamentoAtivo === 'em_andamento') return o.status_execucao === 'Em andamento' && !isOrcamentoExpirado(o);
+        if (state.filtroOrcamentoAtivo === 'finalizado') return o.status_execucao === 'Finalizado';
+        return true;
+    });
 
-    document.getElementById('equipments-list-container').innerHTML = '';
-    if (o.equipamentos_json && o.equipamentos_json.length > 0) {
-        o.equipamentos_json.forEach(eq => {
-            addEquipmentRow(eq.qtd, eq.desc, eq.preco || 0, eq.mostrarPreco !== false);
-        });
-    } else {
-        addEquipmentRow(1, "");
-    }
-    updateEquipmentsSuggestedTotal();
-
-    document.getElementById('form-validade-select').value = 'custom';
-    document.getElementById('validade-custom-container').classList.remove('hidden');
-
-    const dEmissao = new Date(o.data_emissao);
-    const dValidade = new Date(o.validade_proposta);
-    const diffTime = Math.abs(dValidade - dEmissao);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 15;
-    document.getElementById('form-validade-custom').value = diffDays;
-
-    document.getElementById('editor-title').textContent = `Editar Orçamento #${o.numero_orcamento}`;
-    document.getElementById('editor-subtitle').textContent = o.cliente_nome || '';
-    updateFormTotal();
-    setFormReadOnly(false);
-    switchTab('orcamento-editor-tab');
-}
-
-export async function deleteOrcamento(id) {
-    if (!confirm("Confirmar a remoção permanente?")) return;
-    if (state.supabaseClient) {
-        try {
-            const { error } = await state.supabaseClient.from('orcamentos').delete().eq('id', id);
-            if (error) throw error;
-            await syncFromSupabase();
-        } catch (err) {
-            alert("Erro ao excluir do Supabase: " + err.message);
+    // Separar orçamentos com projeto (agrupados) dos sem projeto (linha normal)
+    const comProjeto = {};
+    const semProjeto = [];
+    filtered.forEach(o => {
+        if (o.projeto_id) {
+            if (!comProjeto[o.projeto_id]) comProjeto[o.projeto_id] = [];
+            comProjeto[o.projeto_id].push(o);
+        } else {
+            semProjeto.push(o);
         }
+    });
+
+    function renderLinhaOrcamento(o, dentroDeGrupo) {
+        const { total } = calcularTotalOrcamento(o);
+        const chaveGrupo = o.projeto_id ? `p_${o.projeto_id}` : `c_${o.cliente_id}`;
+        const grupoCount = state.localOrcamentos.filter(x => (x.projeto_id ? `p_${x.projeto_id}` : `c_${x.cliente_id}`) === chaveGrupo).length;
+        const estrelaHtml = grupoCount > 1
+            ? `<button onclick="marcarOrcamentoPrincipal('${o.id}')" title="${o.principal ? 'Principal' : 'Marcar como principal'}" class="p-1.5 ${o.principal ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'} transition-colors"><i class="fa-solid fa-star"></i></button>`
+            : '';
+
+        let badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${o.status_comercial}</span>`;
+        if (o.status_comercial === 'Aprovado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${o.status_comercial}</span>`;
+        if (o.status_comercial === 'Reprovado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">${o.status_comercial}</span>`;
+        if (o.status_comercial === 'Expirado') badgeComercial = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">${o.status_comercial}</span>`;
+
+        let badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">${o.status_execucao}</span>`;
+        if (o.status_execucao === 'Em andamento') badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">${o.status_execucao}</span>`;
+        if (o.status_execucao === 'Finalizado') badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${o.status_execucao}</span>`;
+        if (isOrcamentoExpirado(o)) badgeExecucao = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Expirado</span>`;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition-colors" + (dentroDeGrupo ? " bg-slate-50/60" : "");
+        tr.innerHTML = `
+            <td class="px-6 py-4 font-mono font-bold text-slate-700">${dentroDeGrupo ? '<span class="inline-block w-4"></span>' : ''}${o.numero_orcamento || 'S/N'}</td>
+            <td class="px-6 py-4">
+                <div class="font-bold text-slate-900">${o.cliente_nome}</div>
+                <div class="text-xs text-slate-400">${o.cliente_cidade || ''}-${o.cliente_estado || ''}</div>
+            </td>
+            <td class="px-6 py-4">
+                <div class="text-slate-700 font-medium">${o.tipo_servico_detalhado}</div>
+                <div class="text-[11px] text-slate-400 font-mono">${o.tipo_orcamento}</div>
+            </td>
+            <td class="px-6 py-4 text-right font-bold text-slate-950">${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+            <td class="px-6 py-4 text-center">${badgeComercial}</td>
+            <td class="px-6 py-4 text-center">${badgeExecucao}</td>
+            <td class="px-6 py-4 text-center space-x-1 whitespace-nowrap">
+                ${estrelaHtml}
+                <button onclick="viewOrcamento('${o.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+                <button onclick="exportToPDF('${o.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Exportar PDF"><i class="fa-solid fa-file-pdf text-base"></i></button>
+                <button onclick="exportToDOCX('${o.id}')" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Exportar Word (.docx)"><i class="fa-solid fa-file-word text-base"></i></button>
+                <button onclick="editOrcamento('${o.id}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
+
+                <button onclick="deleteOrcamento('${o.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        `;
+        return tr;
     }
+
+    // Cards de projeto (agrupados, expansíveis via V)
+    Object.keys(comProjeto).forEach(projetoId => {
+        const orcamentosDoProjeto = comProjeto[projetoId];
+        const projeto = state.localProjetos.find(p => String(p.id) === String(projetoId));
+        const totalProjeto = orcamentosDoProjeto.reduce((acc, o) => acc + calcularTotalOrcamento(o).total, 0);
+        const expandido = state.projetosExpandidos.has(projetoId);
+
+        const trGrupo = document.createElement('tr');
+        trGrupo.className = "bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer";
+        trGrupo.onclick = () => toggleProjetoExpandido(projetoId);
+        trGrupo.innerHTML = `
+            <td colspan="3" class="px-6 py-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-chevron-${expandido ? 'down' : 'right'} text-slate-400 text-xs transition-transform"></i>
+                    <i class="fa-solid fa-diagram-project text-amber-500"></i>
+                    <span class="font-bold text-slate-800">${projeto ? projeto.nome : 'Projeto'}</span>
+                    <span class="text-xs text-slate-400">${projeto ? projeto.cliente_nome : ''} · ${orcamentosDoProjeto.length} orçamento(s)</span>
+                </div>
+            </td>
+            <td class="px-6 py-3 text-right font-bold text-slate-950">${totalProjeto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+            <td colspan="3" class="px-6 py-3"></td>
+        `;
+        listBody.appendChild(trGrupo);
+
+        if (expandido) {
+            orcamentosDoProjeto.forEach(o => listBody.appendChild(renderLinhaOrcamento(o, true)));
+        }
+    });
+
+    // Orçamentos sem projeto (linhas normais)
+    semProjeto.forEach(o => listBody.appendChild(renderLinhaOrcamento(o, false)));
 }
 
-export function insertSnippet(key) {
-    const editor = document.getElementById('form-observacoes');
-    const snippetText = SNIPPETS[key];
-    if (editor && snippetText) {
-        const p = document.createElement('div');
-        p.textContent = snippetText;
-        editor.appendChild(p);
+// Controla quais cards de projeto estão expandidos na listagem de orçamentos
+export function toggleProjetoExpandido(projetoId) {
+    if (state.projetosExpandidos.has(projetoId)) {
+        state.projetosExpandidos.delete(projetoId);
+    } else {
+        state.projetosExpandidos.add(projetoId);
     }
-}
-
-export function formatObservacoes(command) {
-    document.getElementById('form-observacoes').focus();
-    document.execCommand(command, false, null);
+    renderOrcamentos();
 }
