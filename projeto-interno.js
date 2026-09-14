@@ -8,6 +8,9 @@
 import { state } from './state.js';
 import { calcularTotalOrcamento } from './utils.js';
 import { isOrcamentoExpirado } from './orcamentos-list.js';
+import { switchTab } from './ui.js';
+import { editCliente } from './clientes.js';
+import { deleteProjeto, voltarParaProjetos } from './projetos.js';
 
 // ------------------------------------------------------------------
 // Cabeçalho: qual projeto está aberto
@@ -231,13 +234,25 @@ export function renderProjetoSubCliente() {
     `;
 }
 
-// Handlers preparados para a Etapa 3 (edição completa do cadastro do
-// cliente e exclusão de projeto a partir da própria área interna). Ainda
-// sem lógica — apenas a estrutura/botões, conforme pedido nesta etapa.
+// Reaproveita o formulário de edição de cliente já existente na aba
+// "Clientes" (Etapa 1): leva o usuário até lá com o cliente já carregado
+// para edição, em vez de duplicar um formulário novo aqui.
 export function editarClienteDoProjetoAtual() {
-    // Etapa 3: abrir edição completa do cliente vinculado ao projeto atual.
+    const cliente = getClienteDoProjetoAtual();
+    if (!cliente) return;
+    switchTab('clientes-tab');
+    editCliente(cliente.id);
 }
 
-export function excluirProjetoAtual() {
-    // Etapa 3: fluxo de exclusão de projeto a partir da área interna.
+// Reaproveita a exclusão de projeto já existente (Etapa 1), incluindo a
+// confirmação e a remoção no Supabase, e volta para a listagem de projetos
+// caso a exclusão seja concluída.
+export async function excluirProjetoAtual() {
+    if (!state.projetoAtualId) return;
+    const idAlvo = state.projetoAtualId;
+    await deleteProjeto(idAlvo);
+    const aindaExiste = state.localProjetos.some(p => String(p.id) === String(idAlvo));
+    if (!aindaExiste) {
+        voltarParaProjetos();
+    }
 }
