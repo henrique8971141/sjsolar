@@ -11,6 +11,7 @@ import { renderClientes } from './clientes.js';
 import { renderCatalog } from './catalogo.js';
 import { populateProjetoDropdowns, renderProjetosPage } from './projetos.js';
 import { updateDatalist } from './catalogo.js';
+import { refreshProjetoInternoSeAberto } from './projeto-interno.js';
 
 export async function initSupabase() {
     try {
@@ -102,6 +103,7 @@ export async function syncFromSupabase() {
         renderProjetosPage();
         populateProjetoDropdowns();
         updateDatalist();
+        refreshProjetoInternoSeAberto();
     } catch (err) {
         console.error("Erro na leitura das tabelas:", err.message);
     }

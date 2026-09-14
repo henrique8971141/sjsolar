@@ -30,5 +30,8 @@ export const state = {
     projetosExpandidos: new Set(),
     editingClienteId: null,
     editingProjetoPageId: null,
-    catalogSelectorTargetRow: null
+    catalogSelectorTargetRow: null,
+    // Área interna do projeto (Etapa 2)
+    projetoAtualId: null,
+    projetoInternoSubTab: 'orcamentos'
 };

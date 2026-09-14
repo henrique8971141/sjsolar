@@ -48,8 +48,19 @@ import {
     closeProjetoPageModal,
     editProjetoPage,
     saveProjetoPage,
-    deleteProjetoPage
+    deleteProjetoPage,
+    abrirProjetoInterno,
+    voltarParaProjetos
 } from './projetos.js';
+
+// ---- projeto-interno.js (área interna do projeto — Etapa 2) ----
+import {
+    switchProjetoSubTab,
+    criarOrcamentoDoProjetoAtual,
+    criarDocumentoDoProjetoAtual,
+    editarClienteDoProjetoAtual,
+    excluirProjetoAtual
+} from './projeto-interno.js';
 
 // ---- catalogo.js ----
 import {
@@ -137,6 +148,15 @@ window.closeProjetoPageModal = closeProjetoPageModal;
 window.editProjetoPage = editProjetoPage;
 window.saveProjetoPage = saveProjetoPage;
 window.deleteProjetoPage = deleteProjetoPage;
+window.abrirProjetoInterno = abrirProjetoInterno;
+window.voltarParaProjetos = voltarParaProjetos;
+
+// projeto-interno.js
+window.switchProjetoSubTab = switchProjetoSubTab;
+window.criarOrcamentoDoProjetoAtual = criarOrcamentoDoProjetoAtual;
+window.criarDocumentoDoProjetoAtual = criarDocumentoDoProjetoAtual;
+window.editarClienteDoProjetoAtual = editarClienteDoProjetoAtual;
+window.excluirProjetoAtual = excluirProjetoAtual;
 
 // catalogo.js
 window.saveQuickItem = saveQuickItem;

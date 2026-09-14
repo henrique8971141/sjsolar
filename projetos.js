@@ -6,6 +6,8 @@
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
 import { initClienteAutocomplete } from './cliente-autocomplete.js';
+import { switchTab } from './ui.js';
+import { switchProjetoSubTab, renderProjetoInternoHeader } from './projeto-interno.js';
 
 // Filtra o select de projeto do orçamento pelos projetos do cliente selecionado
 export function atualizarProjetosDoCliente(clienteId) {
@@ -91,26 +93,72 @@ function formatarDataCriacao(isoString) {
     return d.toLocaleDateString('pt-BR');
 }
 
+// Etapa 2: listagem de Projetos em cards. Cada card é inteiramente clicável
+// e abre a área interna do projeto (Orçamentos / Documentos / Informações do
+// Cliente). Sem botões de "Entrar", "Editar" ou "Excluir" no card — essas
+// ações administrativas ficam dentro da própria área interna do projeto.
 export function renderProjetosPage() {
-    const body = document.getElementById('projetos-page-list-body');
-    if (!body) return;
-    body.innerHTML = '';
-    state.localProjetos.forEach(p => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition-colors";
-        tr.innerHTML = `
-            <td class="px-6 py-4 font-bold text-slate-900">${p.nome}</td>
-            <td class="px-6 py-4">${p.cliente_nome || 'Sem cliente'}</td>
-            <td class="px-6 py-4">${p.responsavel || '-'}</td>
-            <td class="px-6 py-4">${p.status || 'Rascunho'}</td>
-            <td class="px-6 py-4 text-xs text-slate-500">${formatarDataCriacao(p.created_at)}</td>
-            <td class="px-6 py-4 text-center">
-                <button onclick="editProjetoPage('${p.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"><i class="fa-solid fa-pen"></i></button>
-                <button onclick="deleteProjetoPage('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
-            </td>
+    const grid = document.getElementById('projetos-cards-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (state.localProjetos.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
+                Nenhum projeto cadastrado ainda.
+            </div>
         `;
-        body.appendChild(tr);
+        return;
+    }
+
+    state.localProjetos.forEach(p => {
+        const card = document.createElement('div');
+        card.dataset.projetoId = p.id;
+        card.className = "bg-white rounded-xl border border-slate-200 shadow-xs p-5 cursor-pointer hover:border-amber-400 hover:shadow-md transition-all";
+        card.onclick = () => abrirProjetoInterno(p.id);
+        card.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+                <h4 class="font-bold text-slate-900 leading-snug">${p.nome}</h4>
+                <span class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">${p.status || 'Rascunho'}</span>
+            </div>
+            <p class="text-sm text-slate-500 mt-1">${p.cliente_nome || 'Sem cliente'}</p>
+            <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
+                <span>${p.responsavel ? 'Resp.: ' + p.responsavel : ''}</span>
+                <span>${formatarDataCriacao(p.created_at)}</span>
+            </div>
+        `;
+        grid.appendChild(card);
     });
+}
+
+// ============================================================
+// ÁREA INTERNA DO PROJETO (Etapa 2)
+// ============================================================
+
+// Abre a área interna de um projeto específico (identificado pelo seu ID
+// real, guardado em state.projetoAtualId). A partir daqui, todas as sub-telas
+// (Orçamentos, Documentos, Informações do Cliente) sabem qual projeto exibir.
+export function abrirProjetoInterno(id) {
+    const projeto = state.localProjetos.find(p => String(p.id) === String(id));
+    if (!projeto) return;
+
+    state.projetoAtualId = id;
+    state.projetoInternoSubTab = 'orcamentos';
+
+    switchTab('projeto-interno-tab');
+    // Mantém "Projetos" destacado na sidebar, já que continuamos dentro dessa área
+    const navProjetos = document.getElementById('nav-projetos-tab');
+    if (navProjetos) navProjetos.className = "sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950";
+
+    renderProjetoInternoHeader();
+    switchProjetoSubTab('orcamentos');
+}
+
+// Volta para a listagem de projetos, sem perder o cadastro (o projeto
+// simplesmente deixa de ser o "projeto atual").
+export function voltarParaProjetos() {
+    state.projetoAtualId = null;
+    switchTab('projetos-tab');
 }
 
 function ensureProjetoPageClienteAutocomplete() {
