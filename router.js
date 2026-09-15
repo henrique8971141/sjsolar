@@ -132,7 +132,20 @@ export function irParaSubTabProjeto(subTabInterno) {
     navegarPara(`/projeto/${state.projetoAtualId}/${subTabUrl}`);
 }
 
-// Liga o botão Voltar/Avançar do navegador ao Router.
+// Liga o botão Voltar/Avançar do navegador ao Router e renderiza
+// IMEDIATAMENTE a rota atual a partir de window.location.pathname.
+//
+// Esta chamada a handleRota() aqui dentro é o que garante a regra:
+//   pathname -> Router lê -> Router decide -> Router renderiza
+// acontecendo ANTES de qualquer dado do Supabase chegar. Ela roda de
+// forma síncrona assim que o DOM está pronto (chamada em main.js antes
+// de initSupabase()), então troca a tela visível (ver switchTab) já no
+// primeiro frame útil — cobrindo F5, link direto e nova aba sem esperar
+// rede. As telas que dependem de dados (ex.: lista de um projeto) ficam
+// visualmente corretas mas vazias até a sincronização terminar; quando
+// ela termina, handleRota() é chamado de novo (em supabase.js) e
+// preenche os dados sem trocar de tela outra vez.
 export function initRouter() {
     window.addEventListener('popstate', handleRota);
+    handleRota();
 }

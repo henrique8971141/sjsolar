@@ -99,11 +99,20 @@ import { exportToPDF } from './exportPdf.js';
 // ---- exportDocx.js ----
 import { exportToDOCX } from './exportDocx.js';
 
-// Inicializa a conexão com o Supabase assim que o DOM estiver pronto
+// Inicializa a conexão com o Supabase assim que o DOM estiver pronto.
+//
+// IMPORTANTE: initRouter() liga o listener de popstate e, na sequência,
+// handleRota() é chamado de forma síncrona (dentro do próprio initRouter)
+// ANTES do initSupabase() ser disparado. Isso garante que a tela correta
+// seja escolhida imediatamente a partir de window.location.pathname — sem
+// esperar nenhuma resposta de rede — cobrindo F5, link direto e abertura
+// em nova aba. Os dados que dependem do Supabase chegam depois e apenas
+// preenchem a tela já correta (handleRota() roda de novo ao final da
+// sincronização, dentro de supabase.js, para refletir os dados carregados).
 window.addEventListener('DOMContentLoaded', () => {
-    initSupabase();
-    initClientesTabUfSelect();
     initRouter();
+    initClientesTabUfSelect();
+    initSupabase();
 });
 
 // ============================================================

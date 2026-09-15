@@ -103,11 +103,16 @@ export async function syncFromSupabase() {
         renderProjetosPage();
         populateProjetoDropdowns();
         updateDatalist();
-        // Lê a URL atual e mostra a tela correspondente — cobre tanto o
-        // carregamento inicial (F5/link direto num /projeto/:id/...) quanto
-        // futuras ressincronizações enquanto o usuário navega no sistema.
-        handleRota();
     } catch (err) {
         console.error("Erro na leitura das tabelas:", err.message);
+    } finally {
+        // Roda sempre — mesmo se alguma tabela falhar acima — para que a
+        // tela correspondente à URL atual nunca fique "presa" no Início
+        // por causa de um erro de rede/Supabase. A primeira renderização
+        // da rota já aconteceu antes disso, de forma síncrona, dentro de
+        // initRouter() (ver router.js); esta chamada aqui apenas atualiza
+        // a tela já correta com os dados recém-sincronizados (ou, em caso
+        // de erro, ao menos garante que a tela certa continue visível).
+        handleRota();
     }
 }
