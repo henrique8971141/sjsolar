@@ -1025,7 +1025,13 @@
     </div>
 
     <!-- SCRIPT DE EXECUÇÃO -->
-  <script type="module" src='./main.js'></script>
+    <!-- Caminho ABSOLUTO (começa com /), não relativo (./main.js). Um
+         caminho relativo quebra em rotas com mais de 1 segmento, como
+         /projeto/8/orcamentos: o navegador resolveria ./main.js como
+         /projeto/8/main.js (404), e junto com ele TODOS os módulos
+         importados por main.js (router.js, ui.js, etc.) — por isso a
+         aplicação inteira parava de funcionar nessas rotas. -->
+  <script type="module" src='/main.js'></script>
 </body>
 
 </html>
