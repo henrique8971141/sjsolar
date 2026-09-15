@@ -209,7 +209,7 @@
         </div>
 
         <nav class="flex-1 flex flex-col gap-0.5 px-2 py-3 overflow-y-auto text-sm">
-            <button onclick="switchTab('dashboard-tab')" id="nav-dashboard-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950">
+            <button onclick="navegarPara('/')" id="nav-dashboard-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950">
                 <i class="fa-solid fa-chart-pie w-4 text-center"></i> <span class="sidebar-label">BI & Performance</span>
             </button>
             <button onclick="switchTab('orcamentos-tab')" id="nav-orcamentos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
@@ -221,7 +221,7 @@
             <button onclick="switchTab('produtos-tab')" id="nav-produtos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
                 <i class="fa-solid fa-tags w-4 text-center"></i> <span class="sidebar-label">Catálogo</span>
             </button>
-            <button onclick="switchTab('projetos-tab')" id="nav-projetos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
+            <button onclick="navegarPara('/projetos')" id="nav-projetos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
                 <i class="fa-solid fa-diagram-project w-4 text-center"></i> <span class="sidebar-label">Projetos</span>
             </button>
         </nav>
@@ -394,13 +394,13 @@
             </div>
 
             <div class="flex items-center gap-1 border-b border-slate-200">
-                <button type="button" id="subnav-orcamentos" onclick="switchProjetoSubTab('orcamentos')" class="projeto-subnav-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px transition-colors">
+                <button type="button" id="subnav-orcamentos" onclick="irParaSubTabProjeto('orcamentos')" class="projeto-subnav-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px transition-colors">
                     Orçamentos
                 </button>
-                <button type="button" id="subnav-documentos" onclick="switchProjetoSubTab('documentos')" class="projeto-subnav-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px transition-colors">
+                <button type="button" id="subnav-documentos" onclick="irParaSubTabProjeto('documentos')" class="projeto-subnav-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px transition-colors">
                     Documentos
                 </button>
-                <button type="button" id="subnav-cliente" onclick="switchProjetoSubTab('cliente')" class="projeto-subnav-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px transition-colors">
+                <button type="button" id="subnav-cliente" onclick="irParaSubTabProjeto('cliente')" class="projeto-subnav-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px transition-colors">
                     Informações do Cliente
                 </button>
             </div>
@@ -408,6 +408,30 @@
             <div id="projeto-sub-orcamentos" class="projeto-subtab-content"></div>
             <div id="projeto-sub-documentos" class="projeto-subtab-content hidden"></div>
             <div id="projeto-sub-cliente" class="projeto-subtab-content hidden"></div>
+        </section>
+
+        <!-- PROJETO NÃO ENCONTRADO -->
+        <section id="projeto-nao-encontrado-tab" class="tab-content hidden">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-10 text-center max-w-lg mx-auto mt-10">
+                <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-500 mb-3"></i>
+                <h2 class="font-bold text-slate-900 text-lg uppercase tracking-wider">Projeto não encontrado</h2>
+                <p class="text-sm text-slate-500 mt-1">Nenhum projeto com o ID <span id="projeto-nao-encontrado-id" class="font-mono font-bold"></span> foi encontrado.</p>
+                <button type="button" onclick="navegarPara('/projetos')" class="mt-5 px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">
+                    Voltar para Projetos
+                </button>
+            </div>
+        </section>
+
+        <!-- PÁGINA NÃO ENCONTRADA -->
+        <section id="pagina-nao-encontrada-tab" class="tab-content hidden">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-10 text-center max-w-lg mx-auto mt-10">
+                <i class="fa-solid fa-compass text-3xl text-slate-400 mb-3"></i>
+                <h2 class="font-bold text-slate-900 text-lg uppercase tracking-wider">Página não encontrada</h2>
+                <p class="text-sm text-slate-500 mt-1">O endereço acessado não existe no SJSolar.</p>
+                <button type="button" onclick="navegarPara('/projetos')" class="mt-5 px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">
+                    Ir para Projetos
+                </button>
+            </div>
         </section>
 
         <!-- MODAL: NOVO/EDITAR PROJETO -->
@@ -534,6 +558,8 @@
                     </table>
                 </div>
             </div>
+            <!-- Usado pelo autocomplete de itens do catálogo nos formulários de equipamentos (catalogo.js/equipamentos.js) -->
+            <datalist id="produtos-datalist"></datalist>
         </section>
 
         <!-- ABA 5: EDITOR DE ORÇAMENTO (PÁGINA PRÓPRIA, NÃO MODAL) -->

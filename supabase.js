@@ -11,7 +11,7 @@ import { renderClientes } from './clientes.js';
 import { renderCatalog } from './catalogo.js';
 import { populateProjetoDropdowns, renderProjetosPage } from './projetos.js';
 import { updateDatalist } from './catalogo.js';
-import { refreshProjetoInternoSeAberto } from './projeto-interno.js';
+import { handleRota } from './router.js';
 
 export async function initSupabase() {
     try {
@@ -103,7 +103,10 @@ export async function syncFromSupabase() {
         renderProjetosPage();
         populateProjetoDropdowns();
         updateDatalist();
-        refreshProjetoInternoSeAberto();
+        // Lê a URL atual e mostra a tela correspondente — cobre tanto o
+        // carregamento inicial (F5/link direto num /projeto/:id/...) quanto
+        // futuras ressincronizações enquanto o usuário navega no sistema.
+        handleRota();
     } catch (err) {
         console.error("Erro na leitura das tabelas:", err.message);
     }

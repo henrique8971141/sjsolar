@@ -8,6 +8,7 @@ import { syncFromSupabase } from './supabase.js';
 import { initClienteAutocomplete } from './cliente-autocomplete.js';
 import { switchTab } from './ui.js';
 import { switchProjetoSubTab, renderProjetoInternoHeader } from './projeto-interno.js';
+import { navegarPara } from './router.js';
 
 // Filtra o select de projeto do orçamento pelos projetos do cliente selecionado
 export function atualizarProjetosDoCliente(clienteId) {
@@ -135,15 +136,22 @@ export function renderProjetosPage() {
 // ÁREA INTERNA DO PROJETO (Etapa 2)
 // ============================================================
 
-// Abre a área interna de um projeto específico (identificado pelo seu ID
-// real, guardado em state.projetoAtualId). A partir daqui, todas as sub-telas
-// (Orçamentos, Documentos, Informações do Cliente) sabem qual projeto exibir.
+// Chamada pelo card de projeto (onclick já definido em renderProjetosPage) e
+// por qualquer outro ponto que precise "entrar" num projeto. Apenas muda a
+// URL — quem de fato renderiza a tela é renderProjetoNaRota(), chamada pelo
+// Router a partir da URL.
 export function abrirProjetoInterno(id) {
+    navegarPara(`/projeto/${id}`);
+}
+
+// Render "puro" da área interna do projeto: recebe o ID e a sub-aba já
+// resolvidos pelo Router (router.js) e apenas atualiza o estado/DOM — não
+// mexe na URL. Quem decide a URL é sempre o Router.
+export function renderProjetoNaRota(id, subTabInterno) {
     const projeto = state.localProjetos.find(p => String(p.id) === String(id));
     if (!projeto) return;
 
     state.projetoAtualId = id;
-    state.projetoInternoSubTab = 'orcamentos';
 
     switchTab('projeto-interno-tab');
     // Mantém "Projetos" destacado na sidebar, já que continuamos dentro dessa área
@@ -151,14 +159,14 @@ export function abrirProjetoInterno(id) {
     if (navProjetos) navProjetos.className = "sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950";
 
     renderProjetoInternoHeader();
-    switchProjetoSubTab('orcamentos');
+    switchProjetoSubTab(subTabInterno || 'orcamentos');
 }
 
 // Volta para a listagem de projetos, sem perder o cadastro (o projeto
-// simplesmente deixa de ser o "projeto atual").
+// simplesmente deixa de ser o "projeto atual"). Apenas muda a URL — a
+// limpeza de state.projetoAtualId e a troca de tela acontecem no Router.
 export function voltarParaProjetos() {
-    state.projetoAtualId = null;
-    switchTab('projetos-tab');
+    navegarPara('/projetos');
 }
 
 function ensureProjetoPageClienteAutocomplete() {

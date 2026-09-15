@@ -5,6 +5,9 @@
 // no HTML (o próprio HTML é gerado como string em vários pontos, então o
 // browser só consegue resolver esses nomes através do objeto global window).
 
+// ---- router.js ----
+import { navegarPara, irParaSubTabProjeto, initRouter } from './router.js';
+
 import { initSupabase } from './supabase.js';
 
 // ---- ui.js ----
@@ -100,6 +103,7 @@ import { exportToDOCX } from './exportDocx.js';
 window.addEventListener('DOMContentLoaded', () => {
     initSupabase();
     initClientesTabUfSelect();
+    initRouter();
 });
 
 // ============================================================
@@ -150,6 +154,10 @@ window.saveProjetoPage = saveProjetoPage;
 window.deleteProjetoPage = deleteProjetoPage;
 window.abrirProjetoInterno = abrirProjetoInterno;
 window.voltarParaProjetos = voltarParaProjetos;
+
+// router.js
+window.navegarPara = navegarPara;
+window.irParaSubTabProjeto = irParaSubTabProjeto;
 
 // projeto-interno.js
 window.switchProjetoSubTab = switchProjetoSubTab;

@@ -62,13 +62,9 @@ export function switchProjetoSubTab(tab) {
     if (tab === 'cliente') renderProjetoSubCliente();
 }
 
-// Chamado após uma sincronização com o Supabase, para manter a área interna
-// atualizada caso o usuário esteja com um projeto aberto no momento.
-export function refreshProjetoInternoSeAberto() {
-    if (!state.projetoAtualId) return;
-    renderProjetoInternoHeader();
-    switchProjetoSubTab(state.projetoInternoSubTab);
-}
+// (A atualização da área interna após uma sincronização com o Supabase é
+// feita pelo Router — veja handleRota() em router.js, chamada ao final de
+// syncFromSupabase().)
 
 // ------------------------------------------------------------------
 // Bloco de "estado vazio" reutilizado por Orçamentos e Documentos
