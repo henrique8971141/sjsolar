@@ -5,8 +5,11 @@
 // e sobreviverem a F5/voltar/avançar/link direto.
 //
 // Rotas suportadas:
-//   /                            -> Dashboard
+//   /                            -> Dashboard (Início)
+//   /clientes                    -> Listagem de clientes
 //   /projetos                    -> Listagem de projetos
+//   /orcamentos                  -> Listagem de orçamentos
+//   /catalogo                    -> Catálogo de produtos/serviços
 //   /projeto/:id                 -> Área do projeto (sub-aba padrão: Orçamentos)
 //   /projeto/:id/orcamentos      -> Orçamentos do projeto
 //   /projeto/:id/documentos      -> Documentos do projeto
@@ -25,6 +28,15 @@ import { state } from './state.js';
 import { switchTab } from './ui.js';
 import { renderProjetoNaRota } from './projetos.js';
 
+// Rotas de 1 segmento que apenas trocam de aba (mesmo padrão de switchTab
+// já usado por essas telas antes do Router existir).
+const ROTAS_SIMPLES = {
+    projetos: { nome: 'projetos', tabId: 'projetos-tab' },
+    clientes: { nome: 'clientes', tabId: 'clientes-tab' },
+    orcamentos: { nome: 'orcamentos', tabId: 'orcamentos-tab' },
+    catalogo: { nome: 'catalogo', tabId: 'produtos-tab' }
+};
+
 // Nome da sub-aba na URL -> nome interno usado pela área do projeto.
 // A 3ª sub-aba se chama "cliente" internamente (mesmo nome do painel já
 // existente), mas "informacoes" na URL, que é mais claro para quem usa.
@@ -37,8 +49,8 @@ function parseRota(pathname) {
     if (partes.length === 0) {
         return { nome: 'dashboard' };
     }
-    if (partes.length === 1 && partes[0] === 'projetos') {
-        return { nome: 'projetos' };
+    if (partes.length === 1 && ROTAS_SIMPLES[partes[0]]) {
+        return ROTAS_SIMPLES[partes[0]];
     }
     if (partes[0] === 'projeto' && partes[1]) {
         const projetoId = decodeURIComponent(partes[1]);
@@ -79,6 +91,11 @@ export function handleRota() {
     if (rota.nome === 'projetos') {
         state.projetoAtualId = null;
         switchTab('projetos-tab');
+        return;
+    }
+
+    if (rota.nome === 'clientes' || rota.nome === 'orcamentos' || rota.nome === 'catalogo') {
+        switchTab(rota.tabId);
         return;
     }
 
