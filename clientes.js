@@ -8,23 +8,66 @@ import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
 import { buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios, UFS } from './localizacao.js';
 
+// Filtra os clientes pelo texto digitado na busca (nome, CPF/CNPJ,
+// telefone ou e-mail) — mesmo critério já usado pelo autocomplete global
+// em cliente-autocomplete.js, para manter os dois consistentes.
+function filtrarClientes(query) {
+    const termo = String(query || '').trim().toLowerCase();
+    if (!termo) return state.localClientes;
+    return state.localClientes.filter(c =>
+        (c.nome && c.nome.toLowerCase().includes(termo)) ||
+        (c.cpf_cnpj && c.cpf_cnpj.toLowerCase().includes(termo)) ||
+        (c.telefone && c.telefone.toLowerCase().includes(termo)) ||
+        (c.email && c.email.toLowerCase().includes(termo))
+    );
+}
+
 export function renderClientes() {
-    const body = document.getElementById('clientes-list-body');
-    body.innerHTML = '';
-    state.localClientes.forEach(c => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition-colors";
-        tr.innerHTML = `
-            <td class="px-6 py-4 font-bold text-slate-900">${c.nome}</td>
-            <td class="px-6 py-4">${c.telefone || 'Sem telefone'}</td>
-            <td class="px-6 py-4 text-slate-600">${c.email || 'N/A'}</td>
-            <td class="px-6 py-4 text-xs text-slate-500">${c.endereco_completo || ''}${c.numero ? ', ' + c.numero : ''}, ${c.cidade || ''}-${c.estado || ''}</td>
-            <td class="px-6 py-4 text-center">
-                <button onclick="editCliente('${c.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"><i class="fa-solid fa-pen"></i></button>
-                <button onclick="deleteCliente('${c.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
-            </td>
+    const grid = document.getElementById('clientes-cards-grid');
+    if (!grid) return;
+
+    const buscaField = document.getElementById('cli-busca');
+    const clientesFiltrados = filtrarClientes(buscaField ? buscaField.value : '');
+
+    grid.innerHTML = '';
+
+    if (state.localClientes.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
+                Nenhum cliente cadastrado ainda.
+            </div>
         `;
-        body.appendChild(tr);
+        return;
+    }
+
+    if (clientesFiltrados.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
+                Nenhum cliente encontrado para essa busca.
+            </div>
+        `;
+        return;
+    }
+
+    clientesFiltrados.forEach(c => {
+        const card = document.createElement('div');
+        card.className = "bg-white rounded-xl border border-slate-200 shadow-xs p-5 hover:border-amber-400 hover:shadow-md transition-all";
+        card.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+                <h4 class="font-bold text-slate-900 leading-snug">${c.nome}</h4>
+                <div class="shrink-0 flex gap-1">
+                    <button onclick="editCliente('${c.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="deleteCliente('${c.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">${c.cpf_cnpj || 'Sem CPF/CNPJ cadastrado'}</p>
+            <div class="mt-3 pt-3 border-t border-slate-100 space-y-1 text-sm">
+                <p class="text-slate-600"><i class="fa-solid fa-phone w-4 text-slate-400"></i> ${c.telefone || 'Sem telefone'}</p>
+                <p class="text-slate-600"><i class="fa-solid fa-envelope w-4 text-slate-400"></i> ${c.email || 'Sem e-mail'}</p>
+                <p class="text-xs text-slate-400 mt-1">${c.cidade || ''}${c.cidade && c.estado ? '-' : ''}${c.estado || ''}</p>
+            </div>
+        `;
+        grid.appendChild(card);
     });
 }
 
@@ -85,6 +128,13 @@ export function initClientesTabUfSelect() {
             cidadeDropdown.classList.add('hidden');
         }
     });
+
+    // Busca por texto na listagem de clientes (Etapa 2.1). Basta re-renderizar
+    // os cards a cada tecla — a lista já vem inteira do cache local em state.
+    const buscaField = document.getElementById('cli-busca');
+    if (buscaField) {
+        buscaField.addEventListener('input', renderClientes);
+    }
 }
 
 export function editCliente(id) {
@@ -168,7 +218,10 @@ export async function saveQuickCliente() {
 }
 
 export async function deleteCliente(id) {
-    if (!confirm("Isso removerá também todos os orçamentos vinculados a este cliente. Confirmar?")) return;
+    // O banco já garante isso via ON DELETE CASCADE nas FKs de projetos e
+    // orçamentos para clientes — o aviso abaixo só informa o usuário do que
+    // vai acontecer, a exclusão em si não precisa de checagem manual aqui.
+    if (!confirm("Isso removerá também todos os projetos e orçamentos vinculados a este cliente. Confirmar?")) return;
     try {
         const { error } = await state.supabaseClient.from('clientes').delete().eq('id', id);
         if (error) throw error;
