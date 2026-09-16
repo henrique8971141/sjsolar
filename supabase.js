@@ -48,8 +48,6 @@ export async function syncFromSupabase() {
             status: p.status || 'Rascunho',
             observacoes: p.observacoes || '',
             data_projeto: p.data_projeto || null,
-            potencia_kwp: p.potencia_kwp !== null && p.potencia_kwp !== undefined ? parseFloat(p.potencia_kwp) : null,
-            valor_projeto: p.valor_projeto !== null && p.valor_projeto !== undefined ? parseFloat(p.valor_projeto) : null,
             created_at: p.created_at,
             updated_at: p.updated_at
         }));

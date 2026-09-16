@@ -196,8 +196,6 @@ export function renderProjetoSubCliente() {
     }
 
     const dataProjetoFmt = projeto && projeto.data_projeto ? formatarDataParaExibicao(projeto.data_projeto) : '-';
-    const potenciaFmt = projeto && (projeto.potencia_kwp !== null && projeto.potencia_kwp !== undefined) ? `${Number(projeto.potencia_kwp).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kWp` : '-';
-    const valorFmt = projeto && (projeto.valor_projeto !== null && projeto.valor_projeto !== undefined) ? Number(projeto.valor_projeto).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
 
     container.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -207,8 +205,6 @@ export function renderProjetoSubCliente() {
                     <div><dt class="text-slate-400 text-xs">Nome</dt><dd class="text-slate-800 font-medium">${projeto ? projeto.nome : '-'}</dd></div>
                     <div><dt class="text-slate-400 text-xs">Status</dt><dd class="text-slate-800 font-medium">${projeto ? (projeto.status || '-') : '-'}</dd></div>
                     <div><dt class="text-slate-400 text-xs">Data do Projeto</dt><dd class="text-slate-800 font-medium">${dataProjetoFmt}</dd></div>
-                    <div><dt class="text-slate-400 text-xs">Potência</dt><dd class="text-slate-800 font-medium">${potenciaFmt}</dd></div>
-                    <div><dt class="text-slate-400 text-xs">Valor</dt><dd class="text-slate-800 font-medium">${valorFmt}</dd></div>
                 </dl>
                 ${projeto && projeto.descricao ? `<p class="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100">${projeto.descricao}</p>` : ''}
             </div>

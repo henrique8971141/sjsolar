@@ -115,15 +115,7 @@ function formatarDataProjeto(dataIso) {
     return `${dia}/${mes}/${ano}`;
 }
 
-function formatarPotencia(kwp) {
-    if (kwp === null || kwp === undefined || kwp === '') return '';
-    return `${Number(kwp).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWp`;
-}
 
-function formatarValor(valor) {
-    if (valor === null || valor === undefined || valor === '') return '';
-    return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 // Filtra os projetos pelo texto digitado na busca (nome do projeto, nome do
 // cliente, CPF/CNPJ do cliente ou status). Usa somente o cache local em
@@ -178,7 +170,7 @@ export function renderProjetosPage() {
         card.className = "bg-white rounded-xl border border-slate-200 shadow-xs p-5 cursor-pointer hover:border-amber-400 hover:shadow-md transition-all";
         card.onclick = () => abrirProjetoInterno(p.id);
 
-        const detalhes = [formatarDataProjeto(p.data_projeto), formatarPotencia(p.potencia_kwp), formatarValor(p.valor_projeto)]
+        const detalhes = [formatarDataProjeto(p.data_projeto)]
             .filter(Boolean)
             .map(txt => `<span>${txt}</span>`)
             .join('<span class="text-slate-300">•</span>');
@@ -266,8 +258,6 @@ export function openProjetoPageModal() {
     // DEFAULT do banco continua 'Rascunho' até o usuário escolher outro).
     document.getElementById('proj-page-status').value = STATUS_PROJETO[0];
     document.getElementById('proj-page-data').value = '';
-    document.getElementById('proj-page-potencia').value = '';
-    document.getElementById('proj-page-valor').value = '';
     document.getElementById('proj-page-observacoes').value = '';
     clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
@@ -308,8 +298,6 @@ export function editProjetoPage(id) {
     statusSelect.value = statusAtual;
 
     document.getElementById('proj-page-data').value = p.data_projeto || '';
-    document.getElementById('proj-page-potencia').value = (p.potencia_kwp === null || p.potencia_kwp === undefined) ? '' : p.potencia_kwp;
-    document.getElementById('proj-page-valor').value = (p.valor_projeto === null || p.valor_projeto === undefined) ? '' : p.valor_projeto;
     document.getElementById('proj-page-observacoes').value = p.observacoes || '';
     clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
@@ -323,11 +311,7 @@ export async function saveProjetoPage() {
     const observacoes = document.getElementById('proj-page-observacoes').value.trim();
 
     const dataProjetoRaw = document.getElementById('proj-page-data').value;
-    const potenciaRaw = document.getElementById('proj-page-potencia').value;
-    const valorRaw = document.getElementById('proj-page-valor').value;
     const data_projeto = dataProjetoRaw || null;
-    const potencia_kwp = potenciaRaw === '' ? null : parseFloat(potenciaRaw);
-    const valor_projeto = valorRaw === '' ? null : parseFloat(valorRaw);
 
     if (!nome || !cliente_id) {
         alert("Nome do projeto e Cliente são obrigatórios.");
@@ -338,13 +322,13 @@ export async function saveProjetoPage() {
         if (state.editingProjetoPageId) {
             const { error } = await state.supabaseClient
                 .from('projetos')
-                .update({ nome, cliente_id, responsavel, status, observacoes, data_projeto, potencia_kwp, valor_projeto, updated_at: new Date().toISOString() })
+                .update({ nome, cliente_id, responsavel, status, observacoes, data_projeto, updated_at: new Date().toISOString() })
                 .eq('id', state.editingProjetoPageId);
             if (error) throw error;
         } else {
             const { error } = await state.supabaseClient
                 .from('projetos')
-                .insert({ nome, cliente_id, responsavel, status, observacoes, data_projeto, potencia_kwp, valor_projeto });
+                .insert({ nome, cliente_id, responsavel, status, observacoes, data_projeto });
             if (error) throw error;
         }
 
