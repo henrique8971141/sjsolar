@@ -72,8 +72,19 @@ export async function saveInlineProjeto() {
     }
 }
 
+// Um projeto com orçamentos vinculados não pode ser excluído nesta etapa
+// (evita apagar/desvincular orçamentos sem controle). state.localOrcamentos
+// já traz projeto_id mapeado (ver supabase.js), então a checagem é só local.
+function possuiOrcamentosVinculados(projetoId) {
+    return state.localOrcamentos.some(o => String(o.projeto_id) === String(projetoId));
+}
+
 export async function deleteProjeto(id) {
-    if (!confirm("Isso removerá o vínculo dos orçamentos com este projeto (eles não serão apagados). Confirmar?")) return;
+    if (possuiOrcamentosVinculados(id)) {
+        alert("NÃO É POSSÍVEL EXCLUIR ESTE PROJETO.\n\nExistem orçamentos vinculados a este projeto.");
+        return;
+    }
+    if (!confirm("Confirmar exclusão deste projeto?")) return;
     try {
         const { error } = await state.supabaseClient.from('projetos').delete().eq('id', id);
         if (error) throw error;
@@ -94,6 +105,40 @@ function formatarDataCriacao(isoString) {
     return d.toLocaleDateString('pt-BR');
 }
 
+// Formata uma data "YYYY-MM-DD" (coluna date do Postgres) para pt-BR sem
+// passar por new Date(), que aplicaria fuso horário e poderia voltar um dia.
+function formatarDataProjeto(dataIso) {
+    if (!dataIso) return '';
+    const partes = String(dataIso).split('-');
+    if (partes.length !== 3) return '';
+    const [ano, mes, dia] = partes;
+    return `${dia}/${mes}/${ano}`;
+}
+
+function formatarPotencia(kwp) {
+    if (kwp === null || kwp === undefined || kwp === '') return '';
+    return `${Number(kwp).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWp`;
+}
+
+function formatarValor(valor) {
+    if (valor === null || valor === undefined || valor === '') return '';
+    return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+// Filtra os projetos pelo texto digitado na busca (nome do projeto, nome do
+// cliente, CPF/CNPJ do cliente ou status). Usa somente o cache local em
+// state.localProjetos — sem nova consulta ao Supabase a cada tecla.
+function filtrarProjetos(query) {
+    const termo = String(query || '').trim().toLowerCase();
+    if (!termo) return state.localProjetos;
+    return state.localProjetos.filter(p =>
+        (p.nome && p.nome.toLowerCase().includes(termo)) ||
+        (p.cliente_nome && p.cliente_nome.toLowerCase().includes(termo)) ||
+        (p.cliente_cpf_cnpj && p.cliente_cpf_cnpj.toLowerCase().includes(termo)) ||
+        (p.status && p.status.toLowerCase().includes(termo))
+    );
+}
+
 // Etapa 2: listagem de Projetos em cards. Cada card é inteiramente clicável
 // e abre a área interna do projeto (Orçamentos / Documentos / Informações do
 // Cliente). Sem botões de "Entrar", "Editar" ou "Excluir" no card — essas
@@ -105,24 +150,46 @@ export function renderProjetosPage() {
 
     if (state.localProjetos.length === 0) {
         grid.innerHTML = `
-            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
-                Nenhum projeto cadastrado ainda.
+            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center">
+                <p class="font-bold text-slate-500 uppercase tracking-wider text-sm">Nenhum projeto criado</p>
+                <p onclick="openProjetoPageModal()" class="mt-2 inline-block text-amber-600 hover:text-amber-700 font-bold uppercase tracking-wider text-sm cursor-pointer underline underline-offset-2">
+                    Clique aqui para criar
+                </p>
             </div>
         `;
         return;
     }
 
-    state.localProjetos.forEach(p => {
+    const buscaField = document.getElementById('proj-busca');
+    const projetosFiltrados = filtrarProjetos(buscaField ? buscaField.value : '');
+
+    if (projetosFiltrados.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
+                Nenhum projeto encontrado para essa busca.
+            </div>
+        `;
+        return;
+    }
+
+    projetosFiltrados.forEach(p => {
         const card = document.createElement('div');
         card.dataset.projetoId = p.id;
         card.className = "bg-white rounded-xl border border-slate-200 shadow-xs p-5 cursor-pointer hover:border-amber-400 hover:shadow-md transition-all";
         card.onclick = () => abrirProjetoInterno(p.id);
+
+        const detalhes = [formatarDataProjeto(p.data_projeto), formatarPotencia(p.potencia_kwp), formatarValor(p.valor_projeto)]
+            .filter(Boolean)
+            .map(txt => `<span>${txt}</span>`)
+            .join('<span class="text-slate-300">•</span>');
+
         card.innerHTML = `
             <div class="flex items-start justify-between gap-2">
                 <h4 class="font-bold text-slate-900 leading-snug">${p.nome}</h4>
                 <span class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">${p.status || 'Rascunho'}</span>
             </div>
             <p class="text-sm text-slate-500 mt-1">${p.cliente_nome || 'Sem cliente'}</p>
+            ${detalhes ? `<div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">${detalhes}</div>` : ''}
             <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
                 <span>${p.responsavel ? 'Resp.: ' + p.responsavel : ''}</span>
                 <span>${formatarDataCriacao(p.created_at)}</span>
@@ -169,6 +236,12 @@ export function voltarParaProjetos() {
     navegarPara('/projetos');
 }
 
+// Os 5 status que a interface nova utiliza. O DEFAULT do banco continua
+// 'Rascunho' e projetos antigos podem ter outros valores (ex.: "Em
+// orçamento") — esses valores não são convertidos automaticamente (ver
+// regra em editProjetoPage/saveProjetoPage).
+const STATUS_PROJETO = ['Orçamento', 'Em Andamento', 'Aprovado', 'Concluído', 'Cancelado'];
+
 function ensureProjetoPageClienteAutocomplete() {
     if (!clienteAutocompleteProjetoPage) {
         clienteAutocompleteProjetoPage = initClienteAutocomplete('proj-page-cliente-autocomplete', {
@@ -189,7 +262,12 @@ export function openProjetoPageModal() {
     document.getElementById('proj-page-nome').value = '';
     document.getElementById('proj-page-cliente-id').value = '';
     document.getElementById('proj-page-responsavel').value = '';
-    document.getElementById('proj-page-status').value = 'Rascunho';
+    // Novo projeto: começa no primeiro dos 5 status da interface nova (o
+    // DEFAULT do banco continua 'Rascunho' até o usuário escolher outro).
+    document.getElementById('proj-page-status').value = STATUS_PROJETO[0];
+    document.getElementById('proj-page-data').value = '';
+    document.getElementById('proj-page-potencia').value = '';
+    document.getElementById('proj-page-valor').value = '';
     document.getElementById('proj-page-observacoes').value = '';
     clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
@@ -210,7 +288,28 @@ export function editProjetoPage(id) {
     document.getElementById('proj-page-nome').value = p.nome || '';
     document.getElementById('proj-page-cliente-id').value = p.cliente_id || '';
     document.getElementById('proj-page-responsavel').value = p.responsavel || '';
-    document.getElementById('proj-page-status').value = p.status || 'Rascunho';
+
+    // Projeto antigo pode ter um status fora dos 5 da interface nova (ex.:
+    // "Rascunho", "Em orçamento"). Não sobrescrever automaticamente: se o
+    // valor atual não está entre os 5, adiciona-o como opção temporária no
+    // <select> para que o valor original seja preservado até o usuário
+    // escolher explicitamente um novo status.
+    const statusSelect = document.getElementById('proj-page-status');
+    const statusExtraOption = statusSelect.querySelector('option[data-status-legado]');
+    if (statusExtraOption) statusExtraOption.remove();
+    const statusAtual = p.status || 'Rascunho';
+    if (!STATUS_PROJETO.includes(statusAtual)) {
+        const opt = document.createElement('option');
+        opt.value = statusAtual;
+        opt.textContent = `${statusAtual} (status anterior)`;
+        opt.setAttribute('data-status-legado', '1');
+        statusSelect.insertBefore(opt, statusSelect.firstChild);
+    }
+    statusSelect.value = statusAtual;
+
+    document.getElementById('proj-page-data').value = p.data_projeto || '';
+    document.getElementById('proj-page-potencia').value = (p.potencia_kwp === null || p.potencia_kwp === undefined) ? '' : p.potencia_kwp;
+    document.getElementById('proj-page-valor').value = (p.valor_projeto === null || p.valor_projeto === undefined) ? '' : p.valor_projeto;
     document.getElementById('proj-page-observacoes').value = p.observacoes || '';
     clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
@@ -223,6 +322,13 @@ export async function saveProjetoPage() {
     const status = document.getElementById('proj-page-status').value;
     const observacoes = document.getElementById('proj-page-observacoes').value.trim();
 
+    const dataProjetoRaw = document.getElementById('proj-page-data').value;
+    const potenciaRaw = document.getElementById('proj-page-potencia').value;
+    const valorRaw = document.getElementById('proj-page-valor').value;
+    const data_projeto = dataProjetoRaw || null;
+    const potencia_kwp = potenciaRaw === '' ? null : parseFloat(potenciaRaw);
+    const valor_projeto = valorRaw === '' ? null : parseFloat(valorRaw);
+
     if (!nome || !cliente_id) {
         alert("Nome do projeto e Cliente são obrigatórios.");
         return;
@@ -232,13 +338,13 @@ export async function saveProjetoPage() {
         if (state.editingProjetoPageId) {
             const { error } = await state.supabaseClient
                 .from('projetos')
-                .update({ nome, cliente_id, responsavel, status, observacoes, updated_at: new Date().toISOString() })
+                .update({ nome, cliente_id, responsavel, status, observacoes, data_projeto, potencia_kwp, valor_projeto, updated_at: new Date().toISOString() })
                 .eq('id', state.editingProjetoPageId);
             if (error) throw error;
         } else {
             const { error } = await state.supabaseClient
                 .from('projetos')
-                .insert({ nome, cliente_id, responsavel, status, observacoes });
+                .insert({ nome, cliente_id, responsavel, status, observacoes, data_projeto, potencia_kwp, valor_projeto });
             if (error) throw error;
         }
 
@@ -250,7 +356,11 @@ export async function saveProjetoPage() {
 }
 
 export async function deleteProjetoPage(id) {
-    if (!confirm("Isso removerá o vínculo dos orçamentos com este projeto (eles não serão apagados). Confirmar exclusão?")) return;
+    if (possuiOrcamentosVinculados(id)) {
+        alert("NÃO É POSSÍVEL EXCLUIR ESTE PROJETO.\n\nExistem orçamentos vinculados a este projeto.");
+        return;
+    }
+    if (!confirm("Confirmar exclusão deste projeto?")) return;
     try {
         const { error } = await state.supabaseClient.from('projetos').delete().eq('id', id);
         if (error) throw error;

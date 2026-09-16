@@ -53,7 +53,8 @@ import {
     saveProjetoPage,
     deleteProjetoPage,
     abrirProjetoInterno,
-    voltarParaProjetos
+    voltarParaProjetos,
+    renderProjetosPage
 } from './projetos.js';
 
 // ---- projeto-interno.js (área interna do projeto — Etapa 2) ----
@@ -163,6 +164,7 @@ window.saveProjetoPage = saveProjetoPage;
 window.deleteProjetoPage = deleteProjetoPage;
 window.abrirProjetoInterno = abrirProjetoInterno;
 window.voltarParaProjetos = voltarParaProjetos;
+window.renderProjetosPage = renderProjetosPage;
 
 // router.js
 window.navegarPara = navegarPara;

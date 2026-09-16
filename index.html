@@ -371,6 +371,12 @@
                 </button>
             </div>
 
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="proj-busca" oninput="renderProjetosPage()" placeholder="Buscar por nome do projeto, cliente, CPF/CNPJ ou status..."
+                    class="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+            </div>
+
             <div id="projetos-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </section>
 
@@ -451,14 +457,26 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
                         <select id="proj-page-status" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="Rascunho">Rascunho</option>
-                            <option value="Em orçamento">Em orçamento</option>
-                            <option value="Proposta enviada">Proposta enviada</option>
+                            <option value="Orçamento">Orçamento</option>
+                            <option value="Em Andamento">Em Andamento</option>
                             <option value="Aprovado">Aprovado</option>
-                            <option value="Em execução">Em execução</option>
                             <option value="Concluído">Concluído</option>
                             <option value="Cancelado">Cancelado</option>
                         </select>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Data do Projeto</label>
+                            <input type="date" id="proj-page-data" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Potência (kWp)</label>
+                            <input type="number" step="0.01" id="proj-page-potencia" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Valor (R$)</label>
+                            <input type="number" step="0.01" id="proj-page-valor" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Observações</label>

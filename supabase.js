@@ -34,18 +34,22 @@ export async function syncFromSupabase() {
         // Sincronizar Projetos
         const { data: projetosData, error: errProj } = await state.supabaseClient
             .from('projetos')
-            .select(`*, clientes (nome)`)
+            .select(`*, clientes (nome, cpf_cnpj)`)
             .order('created_at', { ascending: false });
         if (errProj) throw errProj;
         state.localProjetos = (projetosData || []).map(p => ({
             id: p.id,
             cliente_id: p.cliente_id,
             cliente_nome: p.clientes?.nome || '',
+            cliente_cpf_cnpj: p.clientes?.cpf_cnpj || '',
             nome: p.nome,
             descricao: p.descricao || '',
             responsavel: p.responsavel || '',
             status: p.status || 'Rascunho',
             observacoes: p.observacoes || '',
+            data_projeto: p.data_projeto || null,
+            potencia_kwp: p.potencia_kwp !== null && p.potencia_kwp !== undefined ? parseFloat(p.potencia_kwp) : null,
+            valor_projeto: p.valor_projeto !== null && p.valor_projeto !== undefined ? parseFloat(p.valor_projeto) : null,
             created_at: p.created_at,
             updated_at: p.updated_at
         }));

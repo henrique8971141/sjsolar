@@ -22,6 +22,15 @@ export function renderProjetoInternoHeader() {
     document.getElementById('projeto-interno-cliente').textContent = `Cliente: ${projeto.cliente_nome || 'Sem cliente'}`;
 }
 
+// Formata "YYYY-MM-DD" (coluna date do Postgres) para pt-BR sem passar por
+// new Date(), que aplicaria fuso horário e poderia voltar um dia.
+function formatarDataParaExibicao(dataIso) {
+    const partes = String(dataIso).split('-');
+    if (partes.length !== 3) return '-';
+    const [ano, mes, dia] = partes;
+    return `${dia}/${mes}/${ano}`;
+}
+
 function getProjetoAtual() {
     return state.localProjetos.find(p => String(p.id) === String(state.projetoAtualId)) || null;
 }
@@ -186,12 +195,28 @@ export function renderProjetoSubCliente() {
         return;
     }
 
+    const dataProjetoFmt = projeto && projeto.data_projeto ? formatarDataParaExibicao(projeto.data_projeto) : '-';
+    const potenciaFmt = projeto && (projeto.potencia_kwp !== null && projeto.potencia_kwp !== undefined) ? `${Number(projeto.potencia_kwp).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kWp` : '-';
+    const valorFmt = projeto && (projeto.valor_projeto !== null && projeto.valor_projeto !== undefined) ? Number(projeto.valor_projeto).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
+
     container.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5 md:col-span-2">
+                <h4 class="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3">Projeto</h4>
+                <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                    <div><dt class="text-slate-400 text-xs">Nome</dt><dd class="text-slate-800 font-medium">${projeto ? projeto.nome : '-'}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Status</dt><dd class="text-slate-800 font-medium">${projeto ? (projeto.status || '-') : '-'}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Data do Projeto</dt><dd class="text-slate-800 font-medium">${dataProjetoFmt}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Potência</dt><dd class="text-slate-800 font-medium">${potenciaFmt}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Valor</dt><dd class="text-slate-800 font-medium">${valorFmt}</dd></div>
+                </dl>
+                ${projeto && projeto.descricao ? `<p class="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100">${projeto.descricao}</p>` : ''}
+            </div>
+
             <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
                 <h4 class="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3">Resumo</h4>
                 <p class="text-lg font-bold text-slate-900">${cliente.nome}</p>
-                <p class="text-sm text-slate-500">${projeto ? 'Responsável do projeto: ' + (projeto.responsavel || '-') : ''}</p>
+                <p class="text-sm text-slate-500">${cliente.cpf_cnpj || 'Sem CPF/CNPJ cadastrado'}</p>
             </div>
 
             <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
@@ -205,11 +230,15 @@ export function renderProjetoSubCliente() {
             <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5 md:col-span-2">
                 <h4 class="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3">Localização</h4>
                 <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                    <div><dt class="text-slate-400 text-xs">Endereço</dt><dd class="text-slate-800 font-medium">${cliente.endereco_completo || '-'}${cliente.numero ? ', ' + cliente.numero : ''}</dd></div>
                     <div><dt class="text-slate-400 text-xs">CEP</dt><dd class="text-slate-800 font-medium">${cliente.cep || '-'}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Endereço</dt><dd class="text-slate-800 font-medium">${cliente.endereco_completo || '-'}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Número</dt><dd class="text-slate-800 font-medium">${cliente.numero || '-'}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Complemento</dt><dd class="text-slate-800 font-medium">${cliente.complemento || '-'}</dd></div>
+                    <div><dt class="text-slate-400 text-xs">Bairro</dt><dd class="text-slate-800 font-medium">${cliente.bairro || '-'}</dd></div>
                     <div><dt class="text-slate-400 text-xs">Cidade</dt><dd class="text-slate-800 font-medium">${cliente.cidade || '-'}</dd></div>
                     <div><dt class="text-slate-400 text-xs">UF</dt><dd class="text-slate-800 font-medium">${cliente.estado || '-'}</dd></div>
                 </dl>
+                ${cliente.observacoes ? `<p class="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100">${cliente.observacoes}</p>` : ''}
             </div>
 
             <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5 md:col-span-2">
