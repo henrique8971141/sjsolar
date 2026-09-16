@@ -78,6 +78,8 @@ export async function syncFromSupabase() {
             principal: !!o.principal,
             tipo_orcamento: o.tipo_orcamento,
             tipo_servico_detalhado: o.tipo_servico_detalhado,
+            tipo_telhado: o.tipo_telhado || '',
+            distribuidora: o.distribuidora || '',
             status_comercial: o.status_comercial,
             status_execucao: o.status_execucao,
             campo_extra_label: o.campo_extra_label || 'Estimativa de banhos/dia',

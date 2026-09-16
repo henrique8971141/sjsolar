@@ -662,6 +662,67 @@
                         </div>
                     </div>
 
+                    <!-- Localização (Etapa 2.3.2): dados de endereço vêm do cadastro do
+                         cliente (somente leitura aqui — editar em Clientes). Tipo de
+                         telhado e distribuidora são específicos do orçamento. -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-location-dot mr-1 text-amber-500"></i> Localização</h3>
+                            <span class="text-[11px] text-slate-400">Endereço vem do cadastro do cliente</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">CEP</label>
+                                <input type="text" id="form-loc-cep" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Endereço</label>
+                                <input type="text" id="form-loc-endereco" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Número</label>
+                                <input type="text" id="form-loc-numero" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Complemento</label>
+                                <input type="text" id="form-loc-complemento" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Bairro</label>
+                                <input type="text" id="form-loc-bairro" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cidade</label>
+                                <input type="text" id="form-loc-cidade" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">UF</label>
+                                <input type="text" id="form-loc-uf" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de telhado</label>
+                                <select id="form-loc-tipo-telhado" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                    <option value="">Selecione</option>
+                                    <option value="Cerâmico">Cerâmico</option>
+                                    <option value="Fibrocimento">Fibrocimento</option>
+                                    <option value="Metálico">Metálico</option>
+                                    <option value="Laje">Laje</option>
+                                    <option value="Solo">Solo</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                                    Distribuidora
+                                    <span id="form-loc-distribuidora-auto-badge" class="hidden normal-case font-semibold text-amber-600">(determinada automaticamente)</span>
+                                </label>
+                                <select id="form-loc-distribuidora" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                    <option value="">Selecione</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Equipamentos dinâmicos -->
                     <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
                         <div class="flex items-center justify-between mb-1">

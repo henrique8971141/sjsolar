@@ -62,3 +62,78 @@ export async function buscarMunicipios(uf, texto) {
     if (!termo) return municipios.slice(0, 8);
     return municipios.filter(m => m.toLowerCase().includes(termo)).slice(0, 8);
 }
+
+// ------------------------------------------------------------------
+// Distribuidoras de energia (Etapa 2.3.2 do editor de orçamento)
+// ------------------------------------------------------------------
+// Regras conhecidas de distribuidora por localização, da mais específica
+// para a mais genérica. Cada regra pode ser por UF (aplica ao estado
+// inteiro) ou por UF+cidade (uma exceção dentro do estado). Isso permite
+// cadastrar, no futuro, regras por região/área de atendimento sem mudar a
+// função que consulta — só adicionar entradas aqui.
+//
+// IMPORTANTE: não assumir que todo estado tem uma única distribuidora.
+// Um estado só entra aqui como regra "cobre o estado inteiro" quando isso
+// for realmente verdade (ex: MG é praticamente só CEMIG); estados com
+// mais de uma distribuidora relevante (ex: SP) devem ser listados por
+// cidade, e a UF sozinha não deve aparecer na tabela — assim a função
+// devolve null e o campo fica para preenchimento manual, em vez de
+// arriscar uma distribuidora errada.
+const REGRAS_DISTRIBUIDORA_POR_CIDADE = {
+    // SP: só cidades específicas com regra conhecida (ENEL SP, área
+    // metropolitana). SP não tem uma distribuidora única no estado todo
+    // (também há CPFL, EDP, Elektro em outras regiões), então SP não
+    // aparece em REGRAS_DISTRIBUIDORA_POR_UF — só as cidades abaixo.
+    'SP|sao paulo': 'ENEL SP',
+    'SP|guarulhos': 'ENEL SP',
+    'SP|osasco': 'ENEL SP',
+    'SP|santo andre': 'ENEL SP',
+    'SP|sao bernardo do campo': 'ENEL SP',
+    'SP|diadema': 'ENEL SP',
+    'SP|maua': 'ENEL SP',
+    'SP|guarujá': 'ENEL SP',
+    'SP|guaruja': 'ENEL SP',
+};
+
+const REGRAS_DISTRIBUIDORA_POR_UF = {
+    'MG': 'CEMIG',
+};
+
+// Remove acentos e normaliza para comparar nomes de cidade com segurança
+// (o cadastro do cliente pode vir com ou sem acento, dependendo da fonte).
+function normalizarTexto(txt) {
+    return String(txt || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+// Tenta determinar a distribuidora a partir de UF (+ cidade, quando
+// disponível). Devolve a string da distribuidora quando há uma regra
+// conhecida e segura, ou null quando não é possível determinar com
+// segurança — nesse caso o campo deve ficar disponível para seleção/ajuste
+// manual (nunca "chutar" uma distribuidora).
+export function determinarDistribuidora(estado, cidade) {
+    const uf = String(estado || '').trim().toUpperCase();
+    if (!uf) return null;
+
+    const cidadeChave = `${uf}|${normalizarTexto(cidade)}`;
+    if (cidade && REGRAS_DISTRIBUIDORA_POR_CIDADE[cidadeChave]) {
+        return REGRAS_DISTRIBUIDORA_POR_CIDADE[cidadeChave];
+    }
+
+    if (REGRAS_DISTRIBUIDORA_POR_UF[uf]) {
+        return REGRAS_DISTRIBUIDORA_POR_UF[uf];
+    }
+
+    return null;
+}
+
+// Lista fixa de distribuidoras para o <select> manual (usada tanto como
+// opções do campo quanto para garantir que uma distribuidora determinada
+// automaticamente sempre tenha uma option correspondente).
+export const DISTRIBUIDORAS_CONHECIDAS = [
+    'CEMIG', 'ENEL SP', 'ENEL RJ', 'ENEL CE', 'ENEL GO', 'CPFL', 'EDP', 'Elektro',
+    'Light', 'Coelba', 'Celpe', 'Equatorial', 'Copel', 'CELESC', 'RGE', 'Neoenergia'
+];

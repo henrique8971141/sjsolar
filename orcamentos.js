@@ -17,6 +17,7 @@ import { atualizarProjetosDoCliente } from './projetos.js';
 import { initClienteAutocomplete } from './cliente-autocomplete.js';
 import { addEquipmentRow, updateEquipmentsSuggestedTotal, getEquipmentsList } from './equipamentos.js';
 import { addPagamentoRow, getPagamentosList } from './pagamentos.js';
+import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS } from './localizacao.js';
 
 export function handleValidadeChange() {
     const valSelect = document.getElementById('form-validade-select').value;
@@ -89,6 +90,67 @@ export function openOrcamentoModal() {
 
 let clienteAutocompleteOrcamento = null;
 
+// Preenche o <select> de distribuidora com as opções conhecidas. Chamado
+// uma vez (o conteúdo é fixo) — reaproveita a mesma lista de
+// localizacao.js usada para validar/permitir o ajuste manual.
+function popularSelectDistribuidora() {
+    const select = document.getElementById('form-loc-distribuidora');
+    if (!select || select.dataset.populado) return;
+    select.innerHTML = '<option value="">Selecione</option>' +
+        DISTRIBUIDORAS_CONHECIDAS.map(d => `<option value="${d}">${d}</option>`).join('');
+    select.dataset.populado = '1';
+}
+
+// Limpa a seção Localização (usado ao abrir um orçamento novo ou quando o
+// cliente selecionado não tem dados de endereço).
+function limparLocalizacao() {
+    document.getElementById('form-loc-cep').value = '';
+    document.getElementById('form-loc-endereco').value = '';
+    document.getElementById('form-loc-numero').value = '';
+    document.getElementById('form-loc-complemento').value = '';
+    document.getElementById('form-loc-bairro').value = '';
+    document.getElementById('form-loc-cidade').value = '';
+    document.getElementById('form-loc-uf').value = '';
+    document.getElementById('form-loc-distribuidora').value = '';
+    document.getElementById('form-loc-distribuidora-auto-badge').classList.add('hidden');
+}
+
+// Copia o endereço do cliente selecionado para os campos (somente leitura)
+// de Localização e tenta determinar a distribuidora pela UF/cidade do
+// cliente. Não duplica o cadastro do cliente: os campos aqui são apenas
+// uma cópia de exibição/consulta, a fonte continua sendo state.localClientes
+// via cliente_id.
+function preencherLocalizacaoDoCliente(clienteId) {
+    popularSelectDistribuidora();
+    const cliente = state.localClientes.find(c => String(c.id) === String(clienteId));
+    if (!cliente) {
+        limparLocalizacao();
+        return;
+    }
+
+    document.getElementById('form-loc-cep').value = cliente.cep || '';
+    document.getElementById('form-loc-endereco').value = cliente.endereco_completo || '';
+    document.getElementById('form-loc-numero').value = cliente.numero || '';
+    document.getElementById('form-loc-complemento').value = cliente.complemento || '';
+    document.getElementById('form-loc-bairro').value = cliente.bairro || '';
+    document.getElementById('form-loc-cidade').value = cliente.cidade || '';
+    document.getElementById('form-loc-uf').value = cliente.estado || '';
+
+    // Distribuidora: tenta determinar automaticamente pela localização do
+    // cliente. Quando não há regra conhecida e segura, o campo fica em
+    // branco para seleção manual (nunca "chuta" uma distribuidora).
+    const distribuidoraSelect = document.getElementById('form-loc-distribuidora');
+    const badge = document.getElementById('form-loc-distribuidora-auto-badge');
+    const distribuidoraAuto = determinarDistribuidora(cliente.estado, cliente.cidade);
+    if (distribuidoraAuto) {
+        distribuidoraSelect.value = distribuidoraAuto;
+        badge.classList.remove('hidden');
+    } else {
+        distribuidoraSelect.value = '';
+        badge.classList.add('hidden');
+    }
+}
+
 function ensureOrcamentoClienteAutocomplete() {
     if (!clienteAutocompleteOrcamento) {
         clienteAutocompleteOrcamento = initClienteAutocomplete('form-cliente-autocomplete', {
@@ -96,6 +158,9 @@ function ensureOrcamentoClienteAutocomplete() {
             onSelect: (clienteId) => {
                 document.getElementById('form-cliente-id').value = clienteId;
                 atualizarProjetosDoCliente(clienteId);
+                // Troca de cliente: atualiza a Localização e recalcula a
+                // distribuidora — nunca mantém os dados do cliente anterior.
+                preencherLocalizacaoDoCliente(clienteId);
             }
         });
     }
@@ -115,6 +180,9 @@ export function openOrcamentoEditor() {
     document.getElementById('form-cliente-id').value = '';
     clienteAutocompleteOrcamento.refresh();
     atualizarProjetosDoCliente('');
+    popularSelectDistribuidora();
+    limparLocalizacao();
+    document.getElementById('form-loc-tipo-telhado').value = '';
     document.getElementById('editor-title').textContent = "Novo Orçamento";
     document.getElementById('editor-subtitle').textContent = "Preencha os dados da proposta";
     document.getElementById('form-campo-extra-label').value = 'Estimativa de banhos/dia';
@@ -161,6 +229,8 @@ export async function handleFormSubmit(e) {
         projeto_id: document.getElementById('form-projeto-id').value || null,
         tipo_orcamento: document.getElementById('form-tipo-orcamento').value,
         tipo_servico_detalhado: document.getElementById('form-tipo-detalhado').value,
+        tipo_telhado: document.getElementById('form-loc-tipo-telhado').value || null,
+        distribuidora: document.getElementById('form-loc-distribuidora').value || null,
         campo_extra_label: document.getElementById('form-campo-extra-label').value.trim() || 'Estimativa de banhos/dia',
         campo_extra_valor: document.getElementById('form-campo-extra-valor').value.trim(),
         garantia_equipamento: document.getElementById('form-garantia-equip').value,
@@ -229,6 +299,17 @@ export function editOrcamento(id) {
     document.getElementById('form-cliente-id').value = o.cliente_id;
     clienteAutocompleteOrcamento.refresh();
     atualizarProjetosDoCliente(o.cliente_id);
+    // Localização: recarrega a partir do cadastro atual do cliente (não do
+    // que foi salvo antes — se o endereço do cliente mudou, reflete aqui).
+    preencherLocalizacaoDoCliente(o.cliente_id);
+    document.getElementById('form-loc-tipo-telhado').value = o.tipo_telhado || '';
+    // Distribuidora: se o orçamento já tem uma distribuidora salva (seja a
+    // automática de quando foi criado, seja um ajuste manual), ela prevalece
+    // sobre o que preencherLocalizacaoDoCliente acabou de calcular.
+    if (o.distribuidora) {
+        document.getElementById('form-loc-distribuidora').value = o.distribuidora;
+        document.getElementById('form-loc-distribuidora-auto-badge').classList.add('hidden');
+    }
     document.getElementById('form-projeto-id').value = o.projeto_id || '';
     document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
     document.getElementById('form-tipo-detalhado').value = o.tipo_servico_detalhado;
