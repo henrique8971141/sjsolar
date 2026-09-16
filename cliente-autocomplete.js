@@ -55,8 +55,8 @@ export function initClienteAutocomplete(containerId, options) {
                 <input type="text" data-field="cpf_cnpj" placeholder="CPF / CNPJ" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
                 <input type="text" data-field="telefone" placeholder="Telefone / WhatsApp" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
                 <input type="email" data-field="email" placeholder="E-mail" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                <input type="text" data-field="cep" placeholder="CEP *" maxlength="9" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
-                <input type="text" data-field="endereco_completo" placeholder="Endereço *" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                <input type="text" data-field="cep" placeholder="CEP" maxlength="9" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                <input type="text" data-field="endereco_completo" placeholder="Endereço" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
                 <input type="text" data-field="numero" placeholder="Número" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
                 <input type="text" data-field="complemento" placeholder="Complemento" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
                 <input type="text" data-field="bairro" placeholder="Bairro" class="px-3 py-2 rounded-lg border border-slate-200 text-sm">
@@ -253,8 +253,6 @@ async function salvarNovoCliente(containerId) {
     const cidade = campo('cidade');
 
     if (!nome) { alert('Nome / Razão Social é obrigatório.'); return; }
-    if (!cep) { alert('CEP é obrigatório.'); return; }
-    if (!endereco_completo) { alert('Endereço é obrigatório.'); return; }
     if (!estado) { alert('UF é obrigatória.'); return; }
     if (!cidade) { alert('Cidade é obrigatória.'); return; }
 

@@ -176,8 +176,6 @@ export async function saveQuickCliente() {
     const cidade = document.getElementById('cli-cidade').value.trim();
 
     if (!nome) { alert("Nome / Razão Social é obrigatório."); return; }
-    if (!cep) { alert("CEP é obrigatório."); return; }
-    if (!endereco_completo) { alert("Endereço é obrigatório."); return; }
     if (!estado) { alert("UF é obrigatória."); return; }
     if (!cidade) { alert("Cidade é obrigatória."); return; }
 
