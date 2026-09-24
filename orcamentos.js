@@ -229,7 +229,11 @@ function ensureLocalizacaoListeners() {
     localizacaoListenersLigados = true;
 }
 
-export function openOrcamentoEditor() {
+// projetoFixo: quando informado (fluxo "Criar Proposta" de dentro de um
+// Projeto), o Orçamento nasce vinculado a esse projeto como Proposta
+// Fotovoltaica, com "Sem projeto" removido e Projeto travado. Sem esse
+// parâmetro, o comportamento é o de sempre (Orçamentos Avulsos incluídos).
+export function openOrcamentoEditor(projetoFixo) {
     if (state.localClientes.length === 0) {
         alert("Por favor, cadastre ao menos um cliente antes de gerar uma proposta.");
         switchTab('clientes-tab');
@@ -240,14 +244,35 @@ export function openOrcamentoEditor() {
     ensureOrcamentoClienteAutocomplete();
     ensureLocalizacaoListeners();
     document.getElementById('form-orcamento-id').value = '';
-    document.getElementById('form-cliente-id').value = '';
-    clienteAutocompleteOrcamento.refresh();
-    atualizarProjetosDoCliente('');
-    popularSelectDistribuidora();
-    limparLocalizacao();
+
+    const projetoSelect = document.getElementById('form-projeto-id');
+
+    if (projetoFixo) {
+        // Fluxo "Criar Proposta" a partir do Projeto: cliente e projeto vêm
+        // travados nesse projeto, tipo fixo em Fotovoltaica On-Grid (o
+        // usuário pode trocar para Off-Grid, mas não para outro tipo sem
+        // projeto), e a Localização carrega direto do Projeto.
+        document.getElementById('form-cliente-id').value = projetoFixo.cliente_id;
+        clienteAutocompleteOrcamento.refresh();
+        atualizarProjetosDoCliente(projetoFixo.cliente_id);
+        projetoSelect.value = projetoFixo.id;
+        projetoSelect.querySelectorAll('option[value=""]').forEach(opt => opt.remove());
+        projetoSelect.disabled = true;
+        document.getElementById('form-tipo-orcamento').value = 'Energia Fotovoltaica On-Grid';
+        popularSelectDistribuidora();
+        atualizarLocalizacaoConformeTipo();
+    } else {
+        document.getElementById('form-cliente-id').value = '';
+        clienteAutocompleteOrcamento.refresh();
+        atualizarProjetosDoCliente('');
+        projetoSelect.disabled = false;
+        popularSelectDistribuidora();
+        limparLocalizacao();
+    }
+
     document.getElementById('form-loc-tipo-telhado').value = '';
-    document.getElementById('editor-title').textContent = "Novo Orçamento";
-    document.getElementById('editor-subtitle').textContent = "Preencha os dados da proposta";
+    document.getElementById('editor-title').textContent = projetoFixo ? "Nova Proposta Fotovoltaica" : "Novo Orçamento";
+    document.getElementById('editor-subtitle').textContent = projetoFixo ? `Projeto: ${projetoFixo.nome}` : "Preencha os dados da proposta";
     document.getElementById('form-campo-extra-label').value = 'Estimativa de banhos/dia';
     document.getElementById('form-campo-extra-valor').value = '';
     document.getElementById('form-desconto-valor').value = '';
@@ -373,6 +398,9 @@ export function editOrcamento(id) {
     document.getElementById('form-cliente-id').value = o.cliente_id;
     clienteAutocompleteOrcamento.refresh();
     atualizarProjetosDoCliente(o.cliente_id);
+    // Edição normal: Projeto sempre editável aqui, mesmo que a última vez
+    // que o editor foi aberto tenha sido pelo fluxo travado do Projeto.
+    document.getElementById('form-projeto-id').disabled = false;
     document.getElementById('form-projeto-id').value = o.projeto_id || '';
     document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
     // Localização: recarrega a partir do cadastro atual (Cliente ou Projeto,

@@ -11,6 +11,7 @@ import { isOrcamentoExpirado } from './orcamentos-list.js';
 import { switchTab } from './ui.js';
 import { editCliente } from './clientes.js';
 import { deleteProjeto, voltarParaProjetos } from './projetos.js';
+import { openOrcamentoEditor } from './orcamentos.js';
 
 // ------------------------------------------------------------------
 // Cabeçalho: qual projeto está aberto
@@ -152,10 +153,15 @@ export function renderProjetoSubOrcamentos() {
     `;
 }
 
-// Handler preparado para a Etapa 3 (criação completa de orçamento/proposta
-// vinculado ao projeto atual). A lógica de criação ainda não existe.
+// Fluxo "CLIQUE AQUI PARA CRIAR" do estado vazio de Orçamentos/Propostas
+// dentro do Projeto: abre o editor já como Proposta Fotovoltaica, com
+// cliente e projeto travados no projeto atual e a Localização vinda da
+// instalação do Projeto (2.3.2). Não afeta o fluxo de Orçamentos Avulsos,
+// que continua abrindo openOrcamentoEditor() sem argumento.
 export function criarOrcamentoDoProjetoAtual() {
-    // Etapa 3: abrir o editor de orçamento já vinculado a state.projetoAtualId.
+    const projeto = getProjetoAtual();
+    if (!projeto) return;
+    openOrcamentoEditor(projeto);
 }
 
 // ------------------------------------------------------------------
