@@ -9,6 +9,7 @@ import { initClienteAutocomplete } from './cliente-autocomplete.js';
 import { switchTab } from './ui.js';
 import { switchProjetoSubTab, renderProjetoInternoHeader } from './projeto-interno.js';
 import { navegarPara } from './router.js';
+import { buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios, UFS } from './localizacao.js';
 
 // Filtra o select de projeto do orçamento pelos projetos do cliente selecionado
 export function atualizarProjetosDoCliente(clienteId) {
@@ -55,10 +56,24 @@ export async function saveInlineProjeto() {
         return;
     }
 
+    // Mini-formulário não tem campos de localização visíveis: mesmo assim,
+    // já grava o endereço atual do Cliente como valor inicial da instalação
+    // (a mesma regra do modal completo), editável depois em "Editar Projeto".
+    const cliente = state.localClientes.find(c => String(c.id) === String(cliente_id));
+    const localizacaoInicial = cliente ? {
+        instalacao_cep: cliente.cep || null,
+        instalacao_endereco_completo: cliente.endereco_completo || null,
+        instalacao_numero: cliente.numero || null,
+        instalacao_complemento: cliente.complemento || null,
+        instalacao_bairro: cliente.bairro || null,
+        instalacao_cidade: cliente.cidade || null,
+        instalacao_estado: cliente.estado || null
+    } : {};
+
     try {
         const { data, error } = await state.supabaseClient
             .from('projetos')
-            .insert({ cliente_id, nome, descricao })
+            .insert({ cliente_id, nome, descricao, ...localizacaoInicial })
             .select()
             .single();
         if (error) throw error;
@@ -66,6 +81,10 @@ export async function saveInlineProjeto() {
         await syncFromSupabase();
         atualizarProjetosDoCliente(cliente_id);
         document.getElementById('form-projeto-id').value = data.id;
+        // Dispara o listener de mudança (ligado em orcamentos.js) para
+        // recalcular a Localização, já que aqui não é possível importar
+        // atualizarLocalizacaoConformeTipo sem criar import circular.
+        document.getElementById('form-projeto-id').dispatchEvent(new Event('change'));
         closeInlineProjetoForm();
     } catch (err) {
         alert("Erro ao criar projeto: " + err.message);
@@ -234,12 +253,121 @@ export function voltarParaProjetos() {
 // regra em editProjetoPage/saveProjetoPage).
 const STATUS_PROJETO = ['Orçamento', 'Em Andamento', 'Aprovado', 'Concluído', 'Cancelado'];
 
+// ------------------------------------------------------------------
+// Localização da Instalação (independente do endereço do Cliente após
+// a criação do Projeto — ver regra no topo do arquivo/commit).
+// ------------------------------------------------------------------
+let instalacaoUfSelectPronto = false;
+
+function limparLocalizacaoInstalacao() {
+    document.getElementById('proj-page-inst-cep').value = '';
+    document.getElementById('proj-page-inst-endereco').value = '';
+    document.getElementById('proj-page-inst-numero').value = '';
+    document.getElementById('proj-page-inst-complemento').value = '';
+    document.getElementById('proj-page-inst-bairro').value = '';
+    document.getElementById('proj-page-inst-cidade').value = '';
+    document.getElementById('proj-page-inst-estado').value = '';
+}
+
+function preencherLocalizacaoInstalacao(p) {
+    document.getElementById('proj-page-inst-cep').value = p.instalacao_cep || '';
+    document.getElementById('proj-page-inst-endereco').value = p.instalacao_endereco_completo || '';
+    document.getElementById('proj-page-inst-numero').value = p.instalacao_numero || '';
+    document.getElementById('proj-page-inst-complemento').value = p.instalacao_complemento || '';
+    document.getElementById('proj-page-inst-bairro').value = p.instalacao_bairro || '';
+    document.getElementById('proj-page-inst-cidade').value = p.instalacao_cidade || '';
+    document.getElementById('proj-page-inst-estado').value = p.instalacao_estado || '';
+}
+
+// Copia o endereço atual do Cliente para os campos de instalação. Usado
+// somente na criação de um Projeto novo — é só o valor inicial, os campos
+// seguem editáveis e independentes depois disso.
+function copiarEnderecoClienteParaInstalacao(clienteId) {
+    const cliente = state.localClientes.find(c => String(c.id) === String(clienteId));
+    if (!cliente) {
+        limparLocalizacaoInstalacao();
+        return;
+    }
+    document.getElementById('proj-page-inst-cep').value = cliente.cep || '';
+    document.getElementById('proj-page-inst-endereco').value = cliente.endereco_completo || '';
+    document.getElementById('proj-page-inst-numero').value = cliente.numero || '';
+    document.getElementById('proj-page-inst-complemento').value = cliente.complemento || '';
+    document.getElementById('proj-page-inst-bairro').value = cliente.bairro || '';
+    document.getElementById('proj-page-inst-cidade').value = cliente.cidade || '';
+    document.getElementById('proj-page-inst-estado').value = cliente.estado || '';
+}
+
+// Liga CEP/IBGE nos campos de instalação do modal (roda uma vez).
+function ensureInstalacaoUfSelect() {
+    if (instalacaoUfSelectPronto) return;
+    const select = document.getElementById('proj-page-inst-estado');
+    UFS.forEach(uf => {
+        const opt = document.createElement('option');
+        opt.value = uf;
+        opt.textContent = uf;
+        select.appendChild(opt);
+    });
+
+    select.addEventListener('change', () => {
+        if (select.value) getMunicipiosPorUf(select.value);
+    });
+
+    const cepField = document.getElementById('proj-page-inst-cep');
+    cepField.addEventListener('blur', async () => {
+        const endereco = await buscarEnderecoPorCep(cepField.value);
+        if (!endereco) return;
+        if (endereco.logradouro) document.getElementById('proj-page-inst-endereco').value = endereco.logradouro;
+        if (endereco.bairro) document.getElementById('proj-page-inst-bairro').value = endereco.bairro;
+        if (endereco.uf) {
+            select.value = endereco.uf;
+            await getMunicipiosPorUf(endereco.uf);
+        }
+        if (endereco.cidade) document.getElementById('proj-page-inst-cidade').value = endereco.cidade;
+    });
+
+    const cidadeField = document.getElementById('proj-page-inst-cidade');
+    const cidadeDropdown = document.getElementById('proj-page-inst-cidade-dropdown');
+    const renderCidades = async () => {
+        if (!select.value) {
+            cidadeDropdown.innerHTML = '<div class="text-xs text-slate-400 px-3 py-2">Selecione a UF primeiro.</div>';
+            cidadeDropdown.classList.remove('hidden');
+            return;
+        }
+        const resultados = await buscarMunicipios(select.value, cidadeField.value);
+        cidadeDropdown.innerHTML = resultados.length === 0
+            ? '<div class="text-xs text-slate-400 px-3 py-2">Nenhuma cidade encontrada.</div>'
+            : resultados.map(nome => `<button type="button" data-cidade="${nome}" class="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors">${nome}</button>`).join('');
+        cidadeDropdown.querySelectorAll('[data-cidade]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                cidadeField.value = btn.dataset.cidade;
+                cidadeDropdown.classList.add('hidden');
+            });
+        });
+        cidadeDropdown.classList.remove('hidden');
+    };
+    cidadeField.addEventListener('focus', renderCidades);
+    cidadeField.addEventListener('input', renderCidades);
+    document.addEventListener('click', (e) => {
+        if (!cidadeField.contains(e.target) && !cidadeDropdown.contains(e.target)) {
+            cidadeDropdown.classList.add('hidden');
+        }
+    });
+
+    instalacaoUfSelectPronto = true;
+}
+
 function ensureProjetoPageClienteAutocomplete() {
     if (!clienteAutocompleteProjetoPage) {
         clienteAutocompleteProjetoPage = initClienteAutocomplete('proj-page-cliente-autocomplete', {
             getClienteAtualId: () => document.getElementById('proj-page-cliente-id').value,
             onSelect: (clienteId) => {
                 document.getElementById('proj-page-cliente-id').value = clienteId;
+                // Só copia o endereço do Cliente para a Localização da Instalação
+                // ao CRIAR o Projeto (valor inicial). Em edição, trocar o cliente
+                // não deve sobrescrever uma localização de instalação já salva.
+                if (!state.editingProjetoPageId) {
+                    copiarEnderecoClienteParaInstalacao(clienteId);
+                }
             }
         });
     }
@@ -249,6 +377,7 @@ function ensureProjetoPageClienteAutocomplete() {
 export function openProjetoPageModal() {
     state.editingProjetoPageId = null;
     ensureProjetoPageClienteAutocomplete();
+    ensureInstalacaoUfSelect();
     document.getElementById('projeto-page-modal-title').textContent = 'Novo Projeto';
     document.getElementById('proj-page-btn-save').textContent = 'Salvar';
     document.getElementById('proj-page-nome').value = '';
@@ -259,6 +388,10 @@ export function openProjetoPageModal() {
     document.getElementById('proj-page-status').value = STATUS_PROJETO[0];
     document.getElementById('proj-page-data').value = '';
     document.getElementById('proj-page-observacoes').value = '';
+    // Localização da instalação: sem cliente selecionado ainda, começa vazia.
+    // Assim que o cliente for escolhido (onSelect abaixo), copia o endereço
+    // dele como valor inicial — depois disso o usuário pode editar à vontade.
+    limparLocalizacaoInstalacao();
     clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
 }
@@ -273,6 +406,7 @@ export function editProjetoPage(id) {
     if (!p) return;
     state.editingProjetoPageId = id;
     ensureProjetoPageClienteAutocomplete();
+    ensureInstalacaoUfSelect();
     document.getElementById('projeto-page-modal-title').textContent = 'Editar Projeto';
     document.getElementById('proj-page-btn-save').textContent = 'Salvar Alterações';
     document.getElementById('proj-page-nome').value = p.nome || '';
@@ -299,6 +433,8 @@ export function editProjetoPage(id) {
 
     document.getElementById('proj-page-data').value = p.data_projeto || '';
     document.getElementById('proj-page-observacoes').value = p.observacoes || '';
+    // Localização da instalação já salva do projeto — nunca a do cliente.
+    preencherLocalizacaoInstalacao(p);
     clienteAutocompleteProjetoPage.refresh();
     document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
 }
@@ -313,6 +449,19 @@ export async function saveProjetoPage() {
     const dataProjetoRaw = document.getElementById('proj-page-data').value;
     const data_projeto = dataProjetoRaw || null;
 
+    // Localização da instalação: sempre enviada com o que estiver nos campos
+    // do modal (copiada do Cliente só como valor inicial na criação — ver
+    // copiarEnderecoClienteParaInstalacao — e depois livremente editável).
+    const localizacaoInstalacao = {
+        instalacao_cep: document.getElementById('proj-page-inst-cep').value.trim(),
+        instalacao_endereco_completo: document.getElementById('proj-page-inst-endereco').value.trim(),
+        instalacao_numero: document.getElementById('proj-page-inst-numero').value.trim(),
+        instalacao_complemento: document.getElementById('proj-page-inst-complemento').value.trim(),
+        instalacao_bairro: document.getElementById('proj-page-inst-bairro').value.trim(),
+        instalacao_cidade: document.getElementById('proj-page-inst-cidade').value.trim(),
+        instalacao_estado: document.getElementById('proj-page-inst-estado').value.trim()
+    };
+
     if (!nome || !cliente_id) {
         alert("Nome do projeto e Cliente são obrigatórios.");
         return;
@@ -322,13 +471,13 @@ export async function saveProjetoPage() {
         if (state.editingProjetoPageId) {
             const { error } = await state.supabaseClient
                 .from('projetos')
-                .update({ nome, cliente_id, responsavel, status, observacoes, data_projeto, updated_at: new Date().toISOString() })
+                .update({ nome, cliente_id, responsavel, status, observacoes, data_projeto, ...localizacaoInstalacao, updated_at: new Date().toISOString() })
                 .eq('id', state.editingProjetoPageId);
             if (error) throw error;
         } else {
             const { error } = await state.supabaseClient
                 .from('projetos')
-                .insert({ nome, cliente_id, responsavel, status, observacoes, data_projeto });
+                .insert({ nome, cliente_id, responsavel, status, observacoes, data_projeto, ...localizacaoInstalacao });
             if (error) throw error;
         }
 

@@ -472,6 +472,47 @@
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Observações</label>
                         <textarea id="proj-page-observacoes" rows="3" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
                     </div>
+
+                    <!-- Localização da Instalação: ao criar o Projeto, é preenchida
+                         inicialmente com o endereço do Cliente selecionado, mas fica
+                         totalmente editável e independente do cadastro do Cliente
+                         a partir daí (nunca sincroniza de volta). -->
+                    <div class="pt-2 border-t border-slate-200">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3"><i class="fa-solid fa-location-dot mr-1 text-amber-500"></i> Localização da Instalação</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">CEP</label>
+                                <input type="text" id="proj-page-inst-cep" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Número</label>
+                                <input type="text" id="proj-page-inst-numero" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Endereço</label>
+                                <input type="text" id="proj-page-inst-endereco" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Complemento</label>
+                                <input type="text" id="proj-page-inst-complemento" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bairro</label>
+                                <input type="text" id="proj-page-inst-bairro" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div class="relative">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cidade</label>
+                                <input type="text" id="proj-page-inst-cidade" autocomplete="off" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                <div id="proj-page-inst-cidade-dropdown" class="hidden absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UF</label>
+                                <select id="proj-page-inst-estado" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                    <option value="">—</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="p-5 border-t border-slate-200 flex justify-end gap-2">
                     <button type="button" onclick="closeProjetoPageModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs uppercase hover:bg-slate-300 transition-colors">Cancelar</button>

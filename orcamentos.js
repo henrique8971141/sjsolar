@@ -115,6 +115,27 @@ function limparLocalizacao() {
     document.getElementById('form-loc-distribuidora-auto-badge').classList.add('hidden');
 }
 
+// Tipos de orçamento que exigem Projeto (Proposta Fotovoltaica): a
+// localização usada é a de instalação do Projeto, não a do Cliente.
+const TIPOS_EXIGEM_PROJETO = ['Energia Fotovoltaica On-Grid', 'Energia Fotovoltaica Off-Grid'];
+
+function tipoExigeProjeto(tipoOrcamento) {
+    return TIPOS_EXIGEM_PROJETO.includes(tipoOrcamento);
+}
+
+function aplicarDistribuidora(estado, cidade) {
+    const distribuidoraSelect = document.getElementById('form-loc-distribuidora');
+    const badge = document.getElementById('form-loc-distribuidora-auto-badge');
+    const distribuidoraAuto = determinarDistribuidora(estado, cidade);
+    if (distribuidoraAuto) {
+        distribuidoraSelect.value = distribuidoraAuto;
+        badge.classList.remove('hidden');
+    } else {
+        distribuidoraSelect.value = '';
+        badge.classList.add('hidden');
+    }
+}
+
 // Copia o endereço do cliente selecionado para os campos (somente leitura)
 // de Localização e tenta determinar a distribuidora pela UF/cidade do
 // cliente. Não duplica o cadastro do cliente: os campos aqui são apenas
@@ -136,18 +157,47 @@ function preencherLocalizacaoDoCliente(clienteId) {
     document.getElementById('form-loc-cidade').value = cliente.cidade || '';
     document.getElementById('form-loc-uf').value = cliente.estado || '';
 
-    // Distribuidora: tenta determinar automaticamente pela localização do
-    // cliente. Quando não há regra conhecida e segura, o campo fica em
-    // branco para seleção manual (nunca "chuta" uma distribuidora).
-    const distribuidoraSelect = document.getElementById('form-loc-distribuidora');
-    const badge = document.getElementById('form-loc-distribuidora-auto-badge');
-    const distribuidoraAuto = determinarDistribuidora(cliente.estado, cliente.cidade);
-    if (distribuidoraAuto) {
-        distribuidoraSelect.value = distribuidoraAuto;
-        badge.classList.remove('hidden');
+    aplicarDistribuidora(cliente.estado, cliente.cidade);
+}
+
+// Copia a Localização da Instalação do Projeto selecionado (usado quando
+// o tipo de orçamento é Proposta Fotovoltaica). Fonte: state.localProjetos
+// via projeto_id — nunca o cadastro do Cliente.
+function preencherLocalizacaoDoProjeto(projetoId) {
+    popularSelectDistribuidora();
+    const projeto = state.localProjetos.find(p => String(p.id) === String(projetoId));
+    if (!projeto) {
+        limparLocalizacao();
+        return;
+    }
+
+    document.getElementById('form-loc-cep').value = projeto.instalacao_cep || '';
+    document.getElementById('form-loc-endereco').value = projeto.instalacao_endereco_completo || '';
+    document.getElementById('form-loc-numero').value = projeto.instalacao_numero || '';
+    document.getElementById('form-loc-complemento').value = projeto.instalacao_complemento || '';
+    document.getElementById('form-loc-bairro').value = projeto.instalacao_bairro || '';
+    document.getElementById('form-loc-cidade').value = projeto.instalacao_cidade || '';
+    document.getElementById('form-loc-uf').value = projeto.instalacao_estado || '';
+
+    aplicarDistribuidora(projeto.instalacao_estado, projeto.instalacao_cidade);
+}
+
+// Decide, pelo tipo de orçamento atual, se a Localização deve vir do
+// Projeto (Fotovoltaico) ou do Cliente (demais tipos / Orçamentos Avulsos
+// continuam funcionando como antes).
+function atualizarLocalizacaoConformeTipo() {
+    const tipo = document.getElementById('form-tipo-orcamento').value;
+    const projetoId = document.getElementById('form-projeto-id').value;
+    const clienteId = document.getElementById('form-cliente-id').value;
+
+    if (tipoExigeProjeto(tipo)) {
+        if (projetoId) {
+            preencherLocalizacaoDoProjeto(projetoId);
+        } else {
+            limparLocalizacao();
+        }
     } else {
-        distribuidoraSelect.value = '';
-        badge.classList.add('hidden');
+        preencherLocalizacaoDoCliente(clienteId);
     }
 }
 
@@ -158,13 +208,25 @@ function ensureOrcamentoClienteAutocomplete() {
             onSelect: (clienteId) => {
                 document.getElementById('form-cliente-id').value = clienteId;
                 atualizarProjetosDoCliente(clienteId);
+                document.getElementById('form-projeto-id').value = '';
                 // Troca de cliente: atualiza a Localização e recalcula a
                 // distribuidora — nunca mantém os dados do cliente anterior.
-                preencherLocalizacaoDoCliente(clienteId);
+                atualizarLocalizacaoConformeTipo();
             }
         });
     }
     return clienteAutocompleteOrcamento;
+}
+
+// Liga os eventos de troca de Tipo de Orçamento e de Projeto para
+// recalcular a Localização (Fotovoltaico usa a do Projeto; os demais
+// tipos usam a do Cliente — ver atualizarLocalizacaoConformeTipo).
+let localizacaoListenersLigados = false;
+function ensureLocalizacaoListeners() {
+    if (localizacaoListenersLigados) return;
+    document.getElementById('form-tipo-orcamento').addEventListener('change', atualizarLocalizacaoConformeTipo);
+    document.getElementById('form-projeto-id').addEventListener('change', atualizarLocalizacaoConformeTipo);
+    localizacaoListenersLigados = true;
 }
 
 export function openOrcamentoEditor() {
@@ -176,6 +238,7 @@ export function openOrcamentoEditor() {
     document.getElementById('orcamento-form').reset();
     document.getElementById('form-observacoes').innerHTML = '';
     ensureOrcamentoClienteAutocomplete();
+    ensureLocalizacaoListeners();
     document.getElementById('form-orcamento-id').value = '';
     document.getElementById('form-cliente-id').value = '';
     clienteAutocompleteOrcamento.refresh();
@@ -214,6 +277,16 @@ export function closeOrcamentoEditor() {
 
 export async function handleFormSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
+
+    const tipoOrcamento = document.getElementById('form-tipo-orcamento').value;
+    const projetoId = document.getElementById('form-projeto-id').value;
+
+    // Proposta Fotovoltaica exige Projeto (é dele que vem a Localização da
+    // Instalação). Orçamentos Avulsos e demais tipos continuam sem exigir.
+    if (tipoExigeProjeto(tipoOrcamento) && !projetoId) {
+        alert("Proposta Fotovoltaica exige um Projeto vinculado. Selecione ou crie um Projeto antes de salvar.");
+        return;
+    }
 
     const id = document.getElementById('form-orcamento-id').value;
     const dataEmissao = document.getElementById('form-data-emissao').value || new Date().toISOString().split('T')[0];
@@ -295,23 +368,25 @@ export function editOrcamento(id) {
     if (!o) return;
 
     ensureOrcamentoClienteAutocomplete();
+    ensureLocalizacaoListeners();
     document.getElementById('form-orcamento-id').value = o.id;
     document.getElementById('form-cliente-id').value = o.cliente_id;
     clienteAutocompleteOrcamento.refresh();
     atualizarProjetosDoCliente(o.cliente_id);
-    // Localização: recarrega a partir do cadastro atual do cliente (não do
-    // que foi salvo antes — se o endereço do cliente mudou, reflete aqui).
-    preencherLocalizacaoDoCliente(o.cliente_id);
+    document.getElementById('form-projeto-id').value = o.projeto_id || '';
+    document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
+    // Localização: recarrega a partir do cadastro atual (Cliente ou Projeto,
+    // conforme o tipo de orçamento) — não do que foi salvo antes, para
+    // refletir eventuais mudanças de endereço.
+    atualizarLocalizacaoConformeTipo();
     document.getElementById('form-loc-tipo-telhado').value = o.tipo_telhado || '';
     // Distribuidora: se o orçamento já tem uma distribuidora salva (seja a
     // automática de quando foi criado, seja um ajuste manual), ela prevalece
-    // sobre o que preencherLocalizacaoDoCliente acabou de calcular.
+    // sobre o que a Localização acabou de calcular.
     if (o.distribuidora) {
         document.getElementById('form-loc-distribuidora').value = o.distribuidora;
         document.getElementById('form-loc-distribuidora-auto-badge').classList.add('hidden');
     }
-    document.getElementById('form-projeto-id').value = o.projeto_id || '';
-    document.getElementById('form-tipo-orcamento').value = o.tipo_orcamento;
     document.getElementById('form-tipo-detalhado').value = o.tipo_servico_detalhado;
     document.getElementById('form-campo-extra-label').value = o.campo_extra_label || 'Estimativa de banhos/dia';
     document.getElementById('form-campo-extra-valor').value = o.campo_extra_valor || '';
