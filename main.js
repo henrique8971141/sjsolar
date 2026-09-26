@@ -60,11 +60,19 @@ import {
 // ---- projeto-interno.js (área interna do projeto — Etapa 2) ----
 import {
     switchProjetoSubTab,
-    criarOrcamentoDoProjetoAtual,
+    criarPropostaDoProjetoAtual,
     criarDocumentoDoProjetoAtual,
     editarClienteDoProjetoAtual,
     excluirProjetoAtual
 } from './projeto-interno.js';
+
+// ---- proposta.js (TELA PRÓPRIA da Proposta — separada do Orçamento) ----
+import {
+    switchPropostaStep,
+    editarProposta,
+    closePropostaEditor,
+    salvarProposta
+} from './proposta.js';
 
 // ---- catalogo.js ----
 import {
@@ -172,10 +180,16 @@ window.irParaSubTabProjeto = irParaSubTabProjeto;
 
 // projeto-interno.js
 window.switchProjetoSubTab = switchProjetoSubTab;
-window.criarOrcamentoDoProjetoAtual = criarOrcamentoDoProjetoAtual;
+window.criarPropostaDoProjetoAtual = criarPropostaDoProjetoAtual;
 window.criarDocumentoDoProjetoAtual = criarDocumentoDoProjetoAtual;
 window.editarClienteDoProjetoAtual = editarClienteDoProjetoAtual;
 window.excluirProjetoAtual = excluirProjetoAtual;
+
+// proposta.js (TELA PRÓPRIA da Proposta)
+window.switchPropostaStep = switchPropostaStep;
+window.editarProposta = editarProposta;
+window.closePropostaEditor = closePropostaEditor;
+window.salvarProposta = salvarProposta;
 
 // catalogo.js
 window.saveQuickItem = saveQuickItem;

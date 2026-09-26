@@ -945,6 +945,126 @@
             </form>
         </section>
 
+        <!-- ================================================================
+             TELA PRÓPRIA DA PROPOSTA (Fotovoltaico) — completamente separada
+             do editor de Orçamento acima. Etapas implementadas até agora:
+             2.3.1 Cliente e Serviço, 2.3.2 Localização. As demais (Unidades
+             Consumidoras, Kit Gerador, Formação do Preço, Condições
+             Comerciais, Revisão/Finalização) ainda não existem.
+             ================================================================ -->
+        <section id="proposta-editor-tab" class="tab-content hidden space-y-6">
+
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="closePropostaEditor()" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors shadow-xs">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 id="proposta-editor-title" class="text-xl font-black text-slate-900 font-brand">Nova Proposta</h2>
+                        <p class="text-xs text-slate-400 font-semibold" id="proposta-editor-subtitle">Projeto fotovoltaico</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closePropostaEditor()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 transition-colors">Cancelar</button>
+                    <button type="button" id="btn-salvar-proposta" onclick="salvarProposta()" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar Proposta
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navegação entre etapas da Proposta -->
+            <div class="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+                <button type="button" data-proposta-step="cliente-servico" onclick="switchPropostaStep('cliente-servico')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">2.3.1 Cliente e Serviço</button>
+                <button type="button" data-proposta-step="localizacao" onclick="switchPropostaStep('localizacao')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">2.3.2 Localização</button>
+            </div>
+
+            <input type="hidden" id="proposta-id">
+            <input type="hidden" id="proposta-projeto-id">
+            <input type="hidden" id="proposta-cliente-id">
+
+            <!-- 2.3.1 — Cliente e Serviço -->
+            <div id="proposta-step-cliente-servico" class="proposta-step-panel space-y-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-user mr-1 text-amber-500"></i> Cliente e Serviço</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente</label>
+                            <input type="text" id="proposta-cliente-nome" readonly class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Projeto</label>
+                            <input type="text" id="proposta-projeto-nome" readonly class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Proposta</label>
+                            <select id="proposta-tipo" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                <option value="Energia Fotovoltaica On-Grid">Energia Fotovoltaica On-Grid</option>
+                                <option value="Energia Fotovoltaica Off-Grid">Energia Fotovoltaica Off-Grid</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Descrição detalhada do serviço</label>
+                            <input type="text" id="proposta-tipo-detalhado" placeholder="Ex: Sistema Fotovoltaico 5,4 kWp" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.3.2 — Localização (localização de instalação do Projeto,
+                 nunca o endereço cadastral do Cliente) -->
+            <div id="proposta-step-localizacao" class="proposta-step-panel hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-location-dot mr-1 text-amber-500"></i> Localização da Instalação</h3>
+                        <span class="text-[11px] text-slate-400">Vem da localização de instalação do Projeto</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">CEP</label>
+                            <input type="text" id="proposta-loc-cep" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Endereço</label>
+                            <input type="text" id="proposta-loc-endereco" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Número</label>
+                            <input type="text" id="proposta-loc-numero" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Complemento</label>
+                            <input type="text" id="proposta-loc-complemento" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Bairro</label>
+                            <input type="text" id="proposta-loc-bairro" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cidade</label>
+                            <input type="text" id="proposta-loc-cidade" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">UF</label>
+                            <input type="text" id="proposta-loc-uf" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                                Distribuidora
+                                <span id="proposta-loc-distribuidora-auto-badge" class="hidden normal-case font-semibold text-amber-600">(determinada automaticamente)</span>
+                            </label>
+                            <select id="proposta-loc-distribuidora" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                <option value="">Selecione</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        Esta localização é a instalação do Projeto e é independente do endereço cadastral do Cliente. Para editá-la, use "Editar Projeto" na aba Informações do Cliente do Projeto.
+                    </p>
+                </div>
+            </div>
+
+        </section>
+
     </main>
 
     <!-- EXPORTAÇÃO (2 PÁGINAS A4 FIXAS COM O SEU MODELO EXATO DE TABELA) -->

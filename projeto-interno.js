@@ -11,7 +11,7 @@ import { isOrcamentoExpirado } from './orcamentos-list.js';
 import { switchTab } from './ui.js';
 import { editCliente } from './clientes.js';
 import { deleteProjeto, voltarParaProjetos } from './projetos.js';
-import { openOrcamentoEditor } from './orcamentos.js';
+import { abrirNovaProposta } from './proposta.js';
 
 // ------------------------------------------------------------------
 // Cabeçalho: qual projeto está aberto
@@ -91,7 +91,7 @@ function estadoVazioHtml(titulo, onclickAction) {
 }
 
 // ------------------------------------------------------------------
-// ORÇAMENTOS (do projeto atual)
+// PROPOSTAS (do projeto atual)
 // ------------------------------------------------------------------
 export function renderProjetoSubOrcamentos() {
     const container = document.getElementById('projeto-sub-orcamentos');
@@ -102,7 +102,7 @@ export function renderProjetoSubOrcamentos() {
     );
 
     if (orcamentosDoProjeto.length === 0) {
-        container.innerHTML = estadoVazioHtml('Nenhum orçamento/proposta criado', 'criarOrcamentoDoProjetoAtual()');
+        container.innerHTML = estadoVazioHtml('Nenhuma proposta criada', 'criarPropostaDoProjetoAtual()');
         return;
     }
 
@@ -120,10 +120,10 @@ export function renderProjetoSubOrcamentos() {
                 <td class="px-6 py-4 text-right font-bold text-slate-950">${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                 <td class="px-6 py-4 text-center">${badgeExecucao}</td>
                 <td class="px-6 py-4 text-center space-x-1 whitespace-nowrap">
-                    <button onclick="viewOrcamento('${o.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+                    <button onclick="editarProposta('${o.id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Visualizar/Editar"><i class="fa-solid fa-eye"></i></button>
                     <button onclick="exportToPDF('${o.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Exportar PDF"><i class="fa-solid fa-file-pdf text-base"></i></button>
                     <button onclick="exportToDOCX('${o.id}')" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Exportar Word (.docx)"><i class="fa-solid fa-file-word text-base"></i></button>
-                    <button onclick="editOrcamento('${o.id}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button onclick="editarProposta('${o.id}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar Proposta"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button onclick="deleteOrcamento('${o.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
                 </td>
             </tr>
@@ -132,8 +132,8 @@ export function renderProjetoSubOrcamentos() {
 
     container.innerHTML = `
         <div class="flex justify-end">
-            <button type="button" onclick="criarOrcamentoDoProjetoAtual()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">
-                <i class="fa-solid fa-plus mr-1"></i> Criar orçamento/proposta
+            <button type="button" onclick="criarPropostaDoProjetoAtual()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-plus mr-1"></i> Criar proposta
             </button>
         </div>
         <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
@@ -153,15 +153,14 @@ export function renderProjetoSubOrcamentos() {
     `;
 }
 
-// Fluxo "CLIQUE AQUI PARA CRIAR" do estado vazio de Orçamentos/Propostas
-// dentro do Projeto: abre o editor já como Proposta Fotovoltaica, com
-// cliente e projeto travados no projeto atual e a Localização vinda da
-// instalação do Projeto (2.3.2). Não afeta o fluxo de Orçamentos Avulsos,
-// que continua abrindo openOrcamentoEditor() sem argumento.
-export function criarOrcamentoDoProjetoAtual() {
+// Fluxo "NENHUMA PROPOSTA CRIADA" / "CLIQUE AQUI PARA CRIAR" do estado vazio
+// de Propostas dentro do Projeto: abre a TELA PRÓPRIA de Proposta (ver
+// proposta.js), nunca o editor de Orçamento. O Orçamento Avulso permanece
+// completamente separado e inalterado.
+export function criarPropostaDoProjetoAtual() {
     const projeto = getProjetoAtual();
     if (!projeto) return;
-    openOrcamentoEditor(projeto);
+    abrirNovaProposta(projeto);
 }
 
 // ------------------------------------------------------------------
