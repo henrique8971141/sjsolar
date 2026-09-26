@@ -75,6 +75,14 @@ import {
     salvarProposta
 } from './proposta.js';
 
+// ---- unidades-consumidoras.js (Etapa 2.3.3 da TELA PRÓPRIA da Proposta) ----
+import {
+    abrirModalUC,
+    fecharModalUC,
+    salvarUC,
+    excluirUC
+} from './unidades-consumidoras.js';
+
 // ---- catalogo.js ----
 import {
     saveQuickItem,
@@ -192,6 +200,12 @@ window.avancarPropostaStep = avancarPropostaStep;
 window.editarProposta = editarProposta;
 window.closePropostaEditor = closePropostaEditor;
 window.salvarProposta = salvarProposta;
+
+// unidades-consumidoras.js (Etapa 2.3.3 da TELA PRÓPRIA da Proposta)
+window.abrirModalUC = abrirModalUC;
+window.fecharModalUC = fecharModalUC;
+window.salvarUC = salvarUC;
+window.excluirUC = excluirUC;
 
 // catalogo.js
 window.saveQuickItem = saveQuickItem;

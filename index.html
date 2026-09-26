@@ -979,6 +979,7 @@
             <div class="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
                 <button type="button" data-proposta-step="cliente-servico" onclick="switchPropostaStep('cliente-servico')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Cliente e Serviço</button>
                 <button type="button" data-proposta-step="localizacao" onclick="switchPropostaStep('localizacao')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Localização</button>
+                <button type="button" data-proposta-step="unidades-consumidoras" onclick="switchPropostaStep('unidades-consumidoras')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Unidades Consumidoras</button>
             </div>
 
             <input type="hidden" id="proposta-id">
@@ -1087,7 +1088,130 @@
                 </div>
             </div>
 
+            <!-- Unidades Consumidoras (2.3.3): uma ou várias UCs vinculadas
+                 a esta Proposta (nunca diretamente ao Cliente). A primeira
+                 cadastrada é sempre UC 01 — GERADORA (não pode virar
+                 beneficiária); as demais são sempre BENEFICIÁRIA — por isso
+                 o tipo não é um campo escolhido no formulário, é decidido
+                 automaticamente pela ordem de cadastro. -->
+            <div id="proposta-step-unidades-consumidoras" class="proposta-step-panel hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-plug mr-1 text-amber-500"></i> Unidades Consumidoras</h3>
+                        <button type="button" onclick="abrirModalUC()" class="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                            <i class="fa-solid fa-plus text-amber-400"></i> Adicionar Unidade Consumidora
+                        </button>
+                    </div>
+                    <div id="proposta-uc-lista" class="space-y-3">
+                        <div class="text-sm text-slate-400 text-center py-10 border border-dashed border-slate-200 rounded-xl">
+                            Nenhuma unidade consumidora cadastrada ainda.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </section>
+
+        <!-- MODAL: NOVA/EDITAR UNIDADE CONSUMIDORA (etapa 2.3.3 da Proposta) -->
+        <div id="uc-modal-overlay" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <h3 id="uc-modal-title" class="font-bold text-slate-900">Nova Unidade Consumidora</h3>
+                        <span id="uc-modal-tipo-badge" class="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold uppercase tracking-wider">GERADORA</span>
+                    </div>
+                    <button type="button" onclick="fecharModalUC()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <input type="hidden" id="uc-modal-id">
+                    <input type="hidden" id="uc-modal-tipo">
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Código/número da UC</label>
+                        <input type="text" id="uc-modal-numero-uc" placeholder="Ex: 1234567-8" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Consumo médio (kWh/mês)</label>
+                            <input type="number" step="0.01" min="0" id="uc-modal-consumo" placeholder="0" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fase</label>
+                            <select id="uc-modal-fase" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                <option value="">Selecione</option>
+                                <option value="Monofásico">Monofásico</option>
+                                <option value="Bifásico">Bifásico</option>
+                                <option value="Trifásico">Trifásico</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tensão</label>
+                            <select id="uc-modal-tensao" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                <option value="">Selecione</option>
+                                <option value="127V">127V</option>
+                                <option value="220V">220V</option>
+                                <option value="380V">380V</option>
+                                <option value="440V">440V</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bandeira/Categoria</label>
+                        <select id="uc-modal-categoria" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                            <option value="">Selecione</option>
+                            <option value="B1">B1 — Residencial</option>
+                            <option value="B2">B2 — Rural</option>
+                            <option value="B3">B3 — Demais classes (comercial/industrial/poder público)</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3"><i class="fa-solid fa-location-dot mr-1 text-amber-500"></i> Endereço da UC</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">CEP</label>
+                                <input type="text" id="uc-modal-cep" placeholder="00000-000" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Número</label>
+                                <input type="text" id="uc-modal-numero" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Endereço</label>
+                                <input type="text" id="uc-modal-endereco" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Complemento</label>
+                                <input type="text" id="uc-modal-complemento" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Bairro</label>
+                                <input type="text" id="uc-modal-bairro" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UF</label>
+                                <select id="uc-modal-uf" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                    <option value="">Selecione</option>
+                                </select>
+                            </div>
+                            <div class="relative">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cidade</label>
+                                <input type="text" id="uc-modal-cidade" autocomplete="off" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                <div id="uc-modal-cidade-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-slate-200 flex items-center justify-end gap-2">
+                    <button type="button" onclick="fecharModalUC()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 transition-colors">Cancelar</button>
+                    <button type="button" onclick="salvarUC()" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar Unidade Consumidora
+                    </button>
+                </div>
+            </div>
+        </div>
 
     </main>
 

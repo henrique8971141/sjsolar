@@ -11,17 +11,18 @@
 // listagem geral, no dashboard e usando a exportação PDF/DOCX já
 // existentes), mas a TELA de edição é inteiramente própria.
 //
-// Etapas implementadas nesta primeira versão: Cliente e Serviço e
-// Localização. As demais (Unidades Consumidoras em diante)
-// ainda não existem — não implementar aqui até serem pedidas.
+// Etapas implementadas até agora: Cliente e Serviço, Localização e
+// Unidades Consumidoras (2.3.3). As etapas seguintes (Kit Gerador em
+// diante) ainda não existem — não implementar aqui até serem pedidas.
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
 import { switchTab } from './ui.js';
 import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS, UFS, buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios } from './localizacao.js';
 import { irParaSubTabProjeto } from './router.js';
+import { carregarUnidadesConsumidoras } from './unidades-consumidoras.js';
 
-const STEPS = ['cliente-servico', 'localizacao'];
+const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras'];
 
 const STEP_ATIVO = "proposta-step-link border-amber-500 text-slate-900";
 const STEP_INATIVO = "proposta-step-link border-transparent text-slate-400 hover:text-slate-700";
@@ -32,7 +33,7 @@ let listenersLocalizacaoLigados = false;
 // ------------------------------------------------------------------
 // Navegação entre as etapas da Proposta
 // ------------------------------------------------------------------
-export function switchPropostaStep(step) {
+export async function switchPropostaStep(step) {
     passoAtualProposta = step;
     STEPS.forEach(s => {
         const painel = document.getElementById(`proposta-step-${s}`);
@@ -41,6 +42,19 @@ export function switchPropostaStep(step) {
         if (link) link.className = s === step ? STEP_ATIVO : STEP_INATIVO;
     });
     atualizarBotaoRodapeProposta();
+
+    // Unidades Consumidoras (2.3.3) pertencem à Proposta já gravada (tabela
+    // "orcamentos"), então, ao entrar nesta etapa, garantimos primeiro que
+    // a Proposta já tem um id (gravando/atualizando Cliente e Serviço +
+    // Localização) antes de carregar/permitir cadastrar UCs.
+    if (step === 'unidades-consumidoras') {
+        const ok = await salvarDadosBaseProposta();
+        if (!ok) {
+            switchPropostaStep('cliente-servico');
+            return;
+        }
+        await carregarUnidadesConsumidoras(document.getElementById('proposta-id').value);
+    }
 }
 
 // O rodapé mostra "Próximo" em toda etapa que não seja a última já
@@ -54,10 +68,10 @@ function atualizarBotaoRodapeProposta() {
 }
 
 // Chamado pelo botão "Próximo": avança para a etapa seguinte da lista.
-export function avancarPropostaStep() {
+export async function avancarPropostaStep() {
     const idx = STEPS.indexOf(passoAtualProposta);
     if (idx === -1 || idx === STEPS.length - 1) return;
-    switchPropostaStep(STEPS[idx + 1]);
+    await switchPropostaStep(STEPS[idx + 1]);
 }
 
 function popularSelectDistribuidoraProposta() {
@@ -288,34 +302,30 @@ export function closePropostaEditor() {
 }
 
 // ------------------------------------------------------------------
-// Salvar (grava na tabela "orcamentos" para manter compatibilidade com a
-// listagem geral, o dashboard e a exportação PDF/DOCX já existentes)
+// Gravar Cliente e Serviço + Localização (grava na tabela "orcamentos"
+// para manter compatibilidade com a listagem geral, o dashboard e a
+// exportação PDF/DOCX já existentes). Reaproveitada tanto ao avançar da
+// Localização para Unidades Consumidoras (para a Proposta já existir e
+// ter um id antes de cadastrar UCs) quanto no botão final "Salvar
+// Proposta". Nunca mexe em Unidades Consumidoras nem em nenhuma etapa
+// futura — cada etapa grava só os seus próprios dados.
 // ------------------------------------------------------------------
-export async function salvarProposta() {
+async function salvarDadosBaseProposta() {
     const id = document.getElementById('proposta-id').value;
     const projeto_id = document.getElementById('proposta-projeto-id').value;
     const cliente_id = document.getElementById('proposta-cliente-id').value;
 
     if (!projeto_id || !cliente_id) {
         alert("Proposta sem Projeto/Cliente vinculado — reabra a partir do Projeto.");
-        return;
+        return false;
     }
-
-    const hoje = new Date().toISOString().split('T')[0];
-    const validade = new Date();
-    validade.setDate(validade.getDate() + 15);
 
     const tipoTelhadoSelecionado = document.getElementById('proposta-loc-tipo-telhado').value;
     const tipoTelhado = tipoTelhadoSelecionado === 'Outro'
         ? (document.getElementById('proposta-loc-tipo-telhado-outro').value || null)
         : (tipoTelhadoSelecionado || null);
 
-    // Campos das etapas ainda não implementadas (Unidades Consumidoras em
-    // diante) recebem valores neutros só para satisfazer colunas
-    // obrigatórias da mesma tabela "orcamentos" usada pelo Orçamento —
-    // nada disso é editável nesta tela ainda, e será substituído quando
-    // essas etapas existirem.
-    const payload = {
+    const payloadBase = {
         cliente_id,
         projeto_id,
         tipo_orcamento: document.getElementById('proposta-tipo').value,
@@ -328,28 +338,52 @@ export async function salvarProposta() {
         instalacao_cidade: document.getElementById('proposta-loc-cidade').value || null,
         instalacao_uf: document.getElementById('proposta-loc-uf').value || null,
         distribuidora: document.getElementById('proposta-loc-distribuidora').value || null,
-        tipo_telhado: tipoTelhado,
-        valor_equipamentos: 0,
-        valor_mao_de_obra: 0,
-        valor_outros: 0,
-        status_comercial: 'Em Negociação',
-        status_execucao: 'A iniciar',
-        data_emissao: hoje,
-        validade_proposta: validade.toISOString().split('T')[0]
+        tipo_telhado: tipoTelhado
     };
 
     try {
         if (id) {
-            const { error } = await state.supabaseClient.from('orcamentos').update(payload).eq('id', id);
+            const { error } = await state.supabaseClient.from('orcamentos').update(payloadBase).eq('id', id);
             if (error) throw error;
-        } else {
-            const { error } = await state.supabaseClient.from('orcamentos').insert(payload);
-            if (error) throw error;
+            return true;
         }
-        await syncFromSupabase();
+
+        // Primeira gravação desta Proposta: além dos campos acima, precisa
+        // preencher colunas obrigatórias da tabela "orcamentos" (mesma
+        // tabela do Orçamento) com valores neutros — nada disso é editável
+        // nesta tela ainda, e será substituído quando as etapas de Kit
+        // Gerador/preço existirem.
+        const hoje = new Date().toISOString().split('T')[0];
+        const validade = new Date();
+        validade.setDate(validade.getDate() + 15);
+
+        const { data, error } = await state.supabaseClient
+            .from('orcamentos')
+            .insert({
+                ...payloadBase,
+                valor_equipamentos: 0,
+                valor_mao_de_obra: 0,
+                valor_outros: 0,
+                status_comercial: 'Em Negociação',
+                status_execucao: 'A iniciar',
+                data_emissao: hoje,
+                validade_proposta: validade.toISOString().split('T')[0]
+            })
+            .select('id')
+            .single();
+        if (error) throw error;
+
+        document.getElementById('proposta-id').value = data.id;
+        return true;
     } catch (err) {
         alert("Erro ao gravar a proposta: " + err.message);
-        return;
+        return false;
     }
+}
+
+export async function salvarProposta() {
+    const ok = await salvarDadosBaseProposta();
+    if (!ok) return;
+    await syncFromSupabase();
     closePropostaEditor();
 }
