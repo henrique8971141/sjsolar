@@ -980,6 +980,7 @@
                 <button type="button" data-proposta-step="cliente-servico" onclick="switchPropostaStep('cliente-servico')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Cliente e Serviço</button>
                 <button type="button" data-proposta-step="localizacao" onclick="switchPropostaStep('localizacao')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Localização</button>
                 <button type="button" data-proposta-step="unidades-consumidoras" onclick="switchPropostaStep('unidades-consumidoras')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Unidades Consumidoras</button>
+                <button type="button" data-proposta-step="kit-gerador" onclick="switchPropostaStep('kit-gerador')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Kit Gerador</button>
             </div>
 
             <input type="hidden" id="proposta-id">
@@ -1107,6 +1108,70 @@
                             Nenhuma unidade consumidora cadastrada ainda.
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Kit Gerador / Equipamentos (2.3.4): os equipamentos são
+                 sempre selecionados a partir do Catálogo existente
+                 (produtos_servicos) — não há cadastro de equipamentos
+                 separado aqui. A potência do sistema é sempre calculada
+                 automaticamente a partir dos módulos selecionados; nunca é
+                 um campo digitável. -->
+            <div id="proposta-step-kit-gerador" class="proposta-step-panel hidden space-y-6">
+                <div id="kit-gerador-erro" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-diagram-project mr-1 text-amber-500"></i> Topologia</h3>
+                    <select id="kit-topologia" onchange="alterarTopologia()" class="w-full sm:w-72 px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                        <option value="Tradicional">Tradicional</option>
+                        <option value="Microinversor">Microinversor</option>
+                        <option value="Otimizadores">Otimizadores</option>
+                    </select>
+                    <p class="text-xs text-slate-400">A topologia orienta quais equipamentos são relevantes, mas nada já cadastrado é apagado automaticamente.</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-solar-panel mr-1 text-amber-500"></i> Módulos Fotovoltaicos</h3>
+                    <div id="kit-lista-modulos" class="space-y-2"></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-plug-circle-bolt mr-1 text-amber-500"></i> Inversores</h3>
+                    <div id="kit-lista-inversores" class="space-y-2"></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-microchip mr-1 text-amber-500"></i> Microinversores</h3>
+                    <div id="kit-lista-microinversores" class="space-y-2"></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-sliders mr-1 text-amber-500"></i> Otimizadores</h3>
+                    <div id="kit-lista-otimizadores" class="space-y-2"></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-box mr-1 text-amber-500"></i> Kit</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nome do Kit</label>
+                            <input type="text" id="kit-nome" onblur="salvarCamposKit()" placeholder="Ex: Kit 11kWp JA Solar + Growatt" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Código/identificação do Kit</label>
+                            <input type="text" id="kit-codigo" onblur="salvarCamposKit()" placeholder="Ex: KIT-2026-014" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Observação</label>
+                            <textarea id="kit-observacao" onblur="salvarCamposKit()" rows="2" placeholder="Observações sobre o kit..." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-white p-6 rounded-xl shadow-md text-center space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Potência do Sistema</p>
+                    <p id="kit-potencia-sistema" class="text-4xl font-black">0,00 kWp</p>
+                    <p id="kit-potencia-resumo" class="text-xs text-slate-300"></p>
                 </div>
             </div>
 

@@ -83,6 +83,16 @@ import {
     excluirUC
 } from './unidades-consumidoras.js';
 
+// ---- kit-gerador.js (Etapa 2.3.4 da TELA PRÓPRIA da Proposta) ----
+import {
+    alterarTopologia,
+    buscarEquipamentoCatalogo,
+    selecionarEquipamentoCatalogo,
+    atualizarQuantidadeEquipamento,
+    removerEquipamento,
+    salvarCamposKit
+} from './kit-gerador.js';
+
 // ---- catalogo.js ----
 import {
     saveQuickItem,
@@ -206,6 +216,14 @@ window.abrirModalUC = abrirModalUC;
 window.fecharModalUC = fecharModalUC;
 window.salvarUC = salvarUC;
 window.excluirUC = excluirUC;
+
+// kit-gerador.js (Etapa 2.3.4 da TELA PRÓPRIA da Proposta)
+window.alterarTopologia = alterarTopologia;
+window.buscarEquipamentoCatalogo = buscarEquipamentoCatalogo;
+window.selecionarEquipamentoCatalogo = selecionarEquipamentoCatalogo;
+window.atualizarQuantidadeEquipamento = atualizarQuantidadeEquipamento;
+window.removerEquipamento = removerEquipamento;
+window.salvarCamposKit = salvarCamposKit;
 
 // catalogo.js
 window.saveQuickItem = saveQuickItem;

@@ -11,9 +11,10 @@
 // listagem geral, no dashboard e usando a exportação PDF/DOCX já
 // existentes), mas a TELA de edição é inteiramente própria.
 //
-// Etapas implementadas até agora: Cliente e Serviço, Localização e
-// Unidades Consumidoras (2.3.3). As etapas seguintes (Kit Gerador em
-// diante) ainda não existem — não implementar aqui até serem pedidas.
+// Etapas implementadas até agora: Cliente e Serviço, Localização,
+// Unidades Consumidoras (2.3.3) e Kit Gerador / Equipamentos (2.3.4).
+// As etapas seguintes (Formação de Preço em diante) ainda não existem —
+// não implementar aqui até serem pedidas.
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
@@ -21,8 +22,9 @@ import { switchTab } from './ui.js';
 import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS, UFS, buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios } from './localizacao.js';
 import { irParaSubTabProjeto } from './router.js';
 import { carregarUnidadesConsumidoras } from './unidades-consumidoras.js';
+import { carregarKitGerador } from './kit-gerador.js';
 
-const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras'];
+const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador'];
 
 const STEP_ATIVO = "proposta-step-link border-amber-500 text-slate-900";
 const STEP_INATIVO = "proposta-step-link border-transparent text-slate-400 hover:text-slate-700";
@@ -54,6 +56,18 @@ export async function switchPropostaStep(step) {
             return;
         }
         await carregarUnidadesConsumidoras(document.getElementById('proposta-id').value);
+    }
+
+    // Kit Gerador / Equipamentos (2.3.4) também pertence à Proposta já
+    // gravada (tabela "orcamentos"), pelo mesmo motivo das Unidades
+    // Consumidoras: precisa de um proposta_id antes de gravar equipamentos.
+    if (step === 'kit-gerador') {
+        const ok = await salvarDadosBaseProposta();
+        if (!ok) {
+            switchPropostaStep('cliente-servico');
+            return;
+        }
+        await carregarKitGerador(document.getElementById('proposta-id').value);
     }
 }
 
