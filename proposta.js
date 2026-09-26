@@ -11,14 +11,14 @@
 // listagem geral, no dashboard e usando a exportação PDF/DOCX já
 // existentes), mas a TELA de edição é inteiramente própria.
 //
-// Etapas implementadas nesta primeira versão: 2.3.1 Cliente e Serviço e
-// 2.3.2 Localização. As demais (2.3.3 Unidades Consumidoras em diante)
+// Etapas implementadas nesta primeira versão: Cliente e Serviço e
+// Localização. As demais (Unidades Consumidoras em diante)
 // ainda não existem — não implementar aqui até serem pedidas.
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
 import { switchTab } from './ui.js';
-import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS } from './localizacao.js';
+import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS, UFS, buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios } from './localizacao.js';
 import { irParaSubTabProjeto } from './router.js';
 
 const STEPS = ['cliente-servico', 'localizacao'];
@@ -26,16 +26,38 @@ const STEPS = ['cliente-servico', 'localizacao'];
 const STEP_ATIVO = "proposta-step-link border-amber-500 text-slate-900";
 const STEP_INATIVO = "proposta-step-link border-transparent text-slate-400 hover:text-slate-700";
 
+let passoAtualProposta = 'cliente-servico';
+let listenersLocalizacaoLigados = false;
+
 // ------------------------------------------------------------------
 // Navegação entre as etapas da Proposta
 // ------------------------------------------------------------------
 export function switchPropostaStep(step) {
+    passoAtualProposta = step;
     STEPS.forEach(s => {
         const painel = document.getElementById(`proposta-step-${s}`);
         const link = document.querySelector(`[data-proposta-step="${s}"]`);
         if (painel) painel.classList.toggle('hidden', s !== step);
         if (link) link.className = s === step ? STEP_ATIVO : STEP_INATIVO;
     });
+    atualizarBotaoRodapeProposta();
+}
+
+// O rodapé mostra "Próximo" em toda etapa que não seja a última já
+// implementada, e "Salvar Proposta" só na última (por enquanto,
+// Localização). Quando novas etapas forem criadas,
+// basta adicioná-las a STEPS — este código não precisa mudar.
+function atualizarBotaoRodapeProposta() {
+    const isUltimaEtapa = passoAtualProposta === STEPS[STEPS.length - 1];
+    document.getElementById('btn-proposta-avancar').classList.toggle('hidden', isUltimaEtapa);
+    document.getElementById('btn-salvar-proposta').classList.toggle('hidden', !isUltimaEtapa);
+}
+
+// Chamado pelo botão "Próximo": avança para a etapa seguinte da lista.
+export function avancarPropostaStep() {
+    const idx = STEPS.indexOf(passoAtualProposta);
+    if (idx === -1 || idx === STEPS.length - 1) return;
+    switchPropostaStep(STEPS[idx + 1]);
 }
 
 function popularSelectDistribuidoraProposta() {
@@ -43,6 +65,14 @@ function popularSelectDistribuidoraProposta() {
     if (!select || select.dataset.populado) return;
     select.innerHTML = '<option value="">Selecione</option>' +
         DISTRIBUIDORAS_CONHECIDAS.map(d => `<option value="${d}">${d}</option>`).join('');
+    select.dataset.populado = '1';
+}
+
+function popularSelectUfProposta() {
+    const select = document.getElementById('proposta-loc-uf');
+    if (!select || select.dataset.populado) return;
+    select.innerHTML = '<option value="">Selecione</option>' +
+        UFS.map(uf => `<option value="${uf}">${uf}</option>`).join('');
     select.dataset.populado = '1';
 }
 
@@ -57,37 +87,109 @@ function toggleTipoTelhadoOutroProposta() {
 }
 window.__toggleTipoTelhadoOutroProposta = toggleTipoTelhadoOutroProposta;
 
-// Carrega a Localização (2.3.2) a partir da localização de instalação do
-// Projeto — nunca do endereço cadastral do Cliente, que é um conceito
-// diferente. Fonte: state.localProjetos, campos instalacao_*.
-function preencherLocalizacaoDaProposta(projeto) {
-    popularSelectDistribuidoraProposta();
+// Liga (uma única vez) os listeners de CEP e autocomplete de cidade dos
+// campos de localização da Proposta. Igual ao padrão já usado em
+// clientes.js, mas gravando só nos campos da Proposta — nunca no Cliente.
+function ligarListenersLocalizacaoProposta() {
+    if (listenersLocalizacaoLigados) return;
+    listenersLocalizacaoLigados = true;
 
-    document.getElementById('proposta-loc-cep').value = projeto.instalacao_cep || '';
-    document.getElementById('proposta-loc-endereco').value = projeto.instalacao_endereco_completo || '';
-    document.getElementById('proposta-loc-numero').value = projeto.instalacao_numero || '';
-    document.getElementById('proposta-loc-complemento').value = projeto.instalacao_complemento || '';
-    document.getElementById('proposta-loc-bairro').value = projeto.instalacao_bairro || '';
-    document.getElementById('proposta-loc-cidade').value = projeto.instalacao_cidade || '';
-    document.getElementById('proposta-loc-uf').value = projeto.instalacao_estado || '';
+    const ufSelect = document.getElementById('proposta-loc-uf');
+    const cepField = document.getElementById('proposta-loc-cep');
+    const cidadeField = document.getElementById('proposta-loc-cidade');
+    const cidadeDropdown = document.getElementById('proposta-loc-cidade-dropdown');
 
-    // Tipo de telhado é campo próprio da Proposta (não vem do Projeto).
-    // Reseta a cada abertura; editarProposta() preenche por cima se já
-    // houver valor salvo.
-    document.getElementById('proposta-loc-tipo-telhado').value = '';
-    document.getElementById('proposta-loc-tipo-telhado-outro').value = '';
-    toggleTipoTelhadoOutroProposta();
+    ufSelect.addEventListener('change', () => {
+        if (ufSelect.value) getMunicipiosPorUf(ufSelect.value);
+        atualizarDistribuidoraAutomaticaProposta();
+    });
 
-    const distribuidoraSelect = document.getElementById('proposta-loc-distribuidora');
+    cepField.addEventListener('blur', async () => {
+        const endereco = await buscarEnderecoPorCep(cepField.value);
+        if (!endereco) return;
+        if (endereco.logradouro) document.getElementById('proposta-loc-endereco').value = endereco.logradouro;
+        if (endereco.bairro) document.getElementById('proposta-loc-bairro').value = endereco.bairro;
+        if (endereco.uf) {
+            ufSelect.value = endereco.uf;
+            await getMunicipiosPorUf(endereco.uf);
+        }
+        if (endereco.cidade) cidadeField.value = endereco.cidade;
+        atualizarDistribuidoraAutomaticaProposta();
+    });
+
+    const renderCidades = async () => {
+        if (!ufSelect.value) {
+            cidadeDropdown.innerHTML = '<div class="text-xs text-slate-400 px-3 py-2">Selecione a UF primeiro.</div>';
+            cidadeDropdown.classList.remove('hidden');
+            return;
+        }
+        const resultados = await buscarMunicipios(ufSelect.value, cidadeField.value);
+        cidadeDropdown.innerHTML = resultados.length === 0
+            ? '<div class="text-xs text-slate-400 px-3 py-2">Nenhuma cidade encontrada.</div>'
+            : resultados.map(nome => `<button type="button" data-cidade="${nome}" class="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors">${nome}</button>`).join('');
+        cidadeDropdown.querySelectorAll('[data-cidade]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                cidadeField.value = btn.dataset.cidade;
+                cidadeDropdown.classList.add('hidden');
+                atualizarDistribuidoraAutomaticaProposta();
+            });
+        });
+        cidadeDropdown.classList.remove('hidden');
+    };
+    cidadeField.addEventListener('focus', renderCidades);
+    cidadeField.addEventListener('input', renderCidades);
+    cidadeField.addEventListener('blur', () => atualizarDistribuidoraAutomaticaProposta());
+    document.addEventListener('click', (e) => {
+        if (!cidadeField.contains(e.target) && !cidadeDropdown.contains(e.target)) {
+            cidadeDropdown.classList.add('hidden');
+        }
+    });
+}
+
+// Recalcula a distribuidora automática a partir do que está preenchido
+// nos campos de UF/cidade da Proposta neste momento (não sobrescreve se
+// o usuário já tiver escolhido manualmente e o badge estiver escondido).
+function atualizarDistribuidoraAutomaticaProposta() {
     const badge = document.getElementById('proposta-loc-distribuidora-auto-badge');
-    const distribuidoraAuto = determinarDistribuidora(projeto.instalacao_estado, projeto.instalacao_cidade);
+    if (badge.classList.contains('hidden') && document.getElementById('proposta-loc-distribuidora').dataset.manual === '1') return;
+
+    const uf = document.getElementById('proposta-loc-uf').value;
+    const cidade = document.getElementById('proposta-loc-cidade').value;
+    const distribuidoraSelect = document.getElementById('proposta-loc-distribuidora');
+    const distribuidoraAuto = determinarDistribuidora(uf, cidade);
     if (distribuidoraAuto) {
         distribuidoraSelect.value = distribuidoraAuto;
         badge.classList.remove('hidden');
     } else {
-        distribuidoraSelect.value = '';
         badge.classList.add('hidden');
     }
+}
+
+// Preenche a Localização (endereço da instalação) a partir do endereço
+// cadastrado do Cliente, quando existir — mas os campos ficam editáveis
+// e nada aqui é regravado no Cliente. Usada apenas ao criar uma Proposta
+// nova; ao reabrir uma existente, os valores salvos na própria Proposta
+// prevalecem (ver editarProposta).
+function preencherLocalizacaoDaProposta(cliente) {
+    popularSelectUfProposta();
+    popularSelectDistribuidoraProposta();
+    ligarListenersLocalizacaoProposta();
+
+    document.getElementById('proposta-loc-cep').value = cliente?.cep || '';
+    document.getElementById('proposta-loc-endereco').value = cliente?.endereco_completo || '';
+    document.getElementById('proposta-loc-numero').value = cliente?.numero || '';
+    document.getElementById('proposta-loc-complemento').value = cliente?.complemento || '';
+    document.getElementById('proposta-loc-bairro').value = cliente?.bairro || '';
+    document.getElementById('proposta-loc-uf').value = cliente?.estado || '';
+    document.getElementById('proposta-loc-cidade').value = cliente?.cidade || '';
+    if (cliente?.estado) getMunicipiosPorUf(cliente.estado);
+
+    document.getElementById('proposta-loc-tipo-telhado').value = '';
+    document.getElementById('proposta-loc-tipo-telhado-outro').value = '';
+    toggleTipoTelhadoOutroProposta();
+
+    document.getElementById('proposta-loc-distribuidora').dataset.manual = '';
+    atualizarDistribuidoraAutomaticaProposta();
 }
 
 function getClienteDaProposta(clienteId) {
@@ -112,7 +214,7 @@ export function abrirNovaProposta(projeto) {
     document.getElementById('proposta-tipo').value = 'Energia Fotovoltaica On-Grid';
     document.getElementById('proposta-tipo-detalhado').value = '';
 
-    preencherLocalizacaoDaProposta(projeto);
+    preencherLocalizacaoDaProposta(cliente);
 
     document.getElementById('proposta-editor-title').textContent = 'Nova Proposta';
     document.getElementById('proposta-editor-subtitle').textContent = `Projeto: ${projeto.nome}`;
@@ -138,13 +240,28 @@ export function editarProposta(id) {
     document.getElementById('proposta-tipo').value = o.tipo_orcamento;
     document.getElementById('proposta-tipo-detalhado').value = o.tipo_servico_detalhado || '';
 
-    // Localização: sempre a partir do Projeto (não do que foi salvo no
-    // orçamento antes), para refletir qualquer edição feita no Projeto.
-    preencherLocalizacaoDaProposta(projeto);
+    // Localização: começa a partir do Cliente (mesmo comportamento de
+    // abrirNovaProposta) e, na sequência, sobrescreve com o que já foi
+    // salvo especificamente nesta Proposta, se houver.
+    preencherLocalizacaoDaProposta(cliente);
+
+    if (o.instalacao_cep) document.getElementById('proposta-loc-cep').value = o.instalacao_cep;
+    if (o.instalacao_endereco) document.getElementById('proposta-loc-endereco').value = o.instalacao_endereco;
+    if (o.instalacao_numero) document.getElementById('proposta-loc-numero').value = o.instalacao_numero;
+    if (o.instalacao_complemento) document.getElementById('proposta-loc-complemento').value = o.instalacao_complemento;
+    if (o.instalacao_bairro) document.getElementById('proposta-loc-bairro').value = o.instalacao_bairro;
+    if (o.instalacao_uf) document.getElementById('proposta-loc-uf').value = o.instalacao_uf;
+    if (o.instalacao_cidade) document.getElementById('proposta-loc-cidade').value = o.instalacao_cidade;
+    if (o.instalacao_uf) getMunicipiosPorUf(o.instalacao_uf);
+
     if (o.distribuidora) {
         document.getElementById('proposta-loc-distribuidora').value = o.distribuidora;
+        document.getElementById('proposta-loc-distribuidora').dataset.manual = '1';
         document.getElementById('proposta-loc-distribuidora-auto-badge').classList.add('hidden');
+    } else {
+        atualizarDistribuidoraAutomaticaProposta();
     }
+
     if (o.tipo_telhado) {
         document.getElementById('proposta-loc-tipo-telhado').value = o.tipo_telhado;
         // Se o valor salvo não bate com nenhuma opção fixa, é uma descrição
@@ -193,15 +310,23 @@ export async function salvarProposta() {
         ? (document.getElementById('proposta-loc-tipo-telhado-outro').value || null)
         : (tipoTelhadoSelecionado || null);
 
-    // Campos das etapas ainda não implementadas (2.3.3 em diante) recebem
-    // valores neutros só para satisfazer colunas obrigatórias da mesma
-    // tabela "orcamentos" usada pelo Orçamento — nada disso é editável
-    // nesta tela ainda, e será substituído quando essas etapas existirem.
+    // Campos das etapas ainda não implementadas (Unidades Consumidoras em
+    // diante) recebem valores neutros só para satisfazer colunas
+    // obrigatórias da mesma tabela "orcamentos" usada pelo Orçamento —
+    // nada disso é editável nesta tela ainda, e será substituído quando
+    // essas etapas existirem.
     const payload = {
         cliente_id,
         projeto_id,
         tipo_orcamento: document.getElementById('proposta-tipo').value,
         tipo_servico_detalhado: document.getElementById('proposta-tipo-detalhado').value,
+        instalacao_cep: document.getElementById('proposta-loc-cep').value || null,
+        instalacao_endereco: document.getElementById('proposta-loc-endereco').value || null,
+        instalacao_numero: document.getElementById('proposta-loc-numero').value || null,
+        instalacao_complemento: document.getElementById('proposta-loc-complemento').value || null,
+        instalacao_bairro: document.getElementById('proposta-loc-bairro').value || null,
+        instalacao_cidade: document.getElementById('proposta-loc-cidade').value || null,
+        instalacao_uf: document.getElementById('proposta-loc-uf').value || null,
         distribuidora: document.getElementById('proposta-loc-distribuidora').value || null,
         tipo_telhado: tipoTelhado,
         valor_equipamentos: 0,

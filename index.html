@@ -947,10 +947,10 @@
 
         <!-- ================================================================
              TELA PRÓPRIA DA PROPOSTA (Fotovoltaico) — completamente separada
-             do editor de Orçamento acima. Etapas implementadas até agora:
-             2.3.1 Cliente e Serviço, 2.3.2 Localização. As demais (Unidades
-             Consumidoras, Kit Gerador, Formação do Preço, Condições
-             Comerciais, Revisão/Finalização) ainda não existem.
+             Etapas implementadas até agora: Cliente e Serviço, Localização.
+             As demais (Unidades Consumidoras, Kit Gerador, Formação do
+             Preço, Condições Comerciais, Revisão/Finalização) ainda não
+             existem.
              ================================================================ -->
         <section id="proposta-editor-tab" class="tab-content hidden space-y-6">
 
@@ -966,7 +966,10 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="closePropostaEditor()" class="px-5 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 transition-colors">Cancelar</button>
-                    <button type="button" id="btn-salvar-proposta" onclick="salvarProposta()" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                    <button type="button" id="btn-proposta-avancar" onclick="avancarPropostaStep()" class="px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-right text-amber-400"></i> Próximo
+                    </button>
+                    <button type="button" id="btn-salvar-proposta" onclick="salvarProposta()" class="hidden px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
                         <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar Proposta
                     </button>
                 </div>
@@ -974,15 +977,15 @@
 
             <!-- Navegação entre etapas da Proposta -->
             <div class="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
-                <button type="button" data-proposta-step="cliente-servico" onclick="switchPropostaStep('cliente-servico')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">2.3.1 Cliente e Serviço</button>
-                <button type="button" data-proposta-step="localizacao" onclick="switchPropostaStep('localizacao')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">2.3.2 Localização</button>
+                <button type="button" data-proposta-step="cliente-servico" onclick="switchPropostaStep('cliente-servico')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Cliente e Serviço</button>
+                <button type="button" data-proposta-step="localizacao" onclick="switchPropostaStep('localizacao')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Localização</button>
             </div>
 
             <input type="hidden" id="proposta-id">
             <input type="hidden" id="proposta-projeto-id">
             <input type="hidden" id="proposta-cliente-id">
 
-            <!-- 2.3.1 — Cliente e Serviço -->
+            <!-- Cliente e Serviço -->
             <div id="proposta-step-cliente-servico" class="proposta-step-panel space-y-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
                     <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-user mr-1 text-amber-500"></i> Cliente e Serviço</h3>
@@ -1010,42 +1013,47 @@
                 </div>
             </div>
 
-            <!-- 2.3.2 — Localização (localização de instalação do Projeto,
-                 nunca o endereço cadastral do Cliente) -->
+            <!-- Localização (endereço de instalação): parte pré-preenchida com o
+                 endereço cadastrado do Cliente (quando existir), mas totalmente
+                 editável aqui. Qualquer alteração ou preenchimento fica só na
+                 Proposta — nunca grava de volta no Cliente nem no Projeto. -->
             <div id="proposta-step-localizacao" class="proposta-step-panel hidden space-y-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-location-dot mr-1 text-amber-500"></i> Localização da Instalação</h3>
-                        <span class="text-[11px] text-slate-400">Vem da localização de instalação do Projeto</span>
+                        <span class="text-[11px] text-slate-400">Pré-preenchido com o endereço do cliente — edite se for diferente</span>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">CEP</label>
-                            <input type="text" id="proposta-loc-cep" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            <input type="text" id="proposta-loc-cep" placeholder="00000-000" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                         </div>
                         <div class="sm:col-span-2">
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Endereço</label>
-                            <input type="text" id="proposta-loc-endereco" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            <input type="text" id="proposta-loc-endereco" placeholder="Rua, Av..." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Número</label>
-                            <input type="text" id="proposta-loc-numero" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            <input type="text" id="proposta-loc-numero" placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Complemento</label>
-                            <input type="text" id="proposta-loc-complemento" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            <input type="text" id="proposta-loc-complemento" placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Bairro</label>
-                            <input type="text" id="proposta-loc-bairro" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cidade</label>
-                            <input type="text" id="proposta-loc-cidade" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            <input type="text" id="proposta-loc-bairro" placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">UF</label>
-                            <input type="text" id="proposta-loc-uf" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
+                            <select id="proposta-loc-uf" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                <option value="">Selecione</option>
+                            </select>
+                        </div>
+                        <div class="relative">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cidade</label>
+                            <input type="text" id="proposta-loc-cidade" placeholder="—" autocomplete="off" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+                            <div id="proposta-loc-cidade-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Telhado</label>
@@ -1074,7 +1082,7 @@
                         </div>
                     </div>
                     <p class="text-xs text-slate-400">
-                        O endereço acima é a instalação do Projeto e é independente do endereço cadastral do Cliente. Para editá-lo, use "Editar Projeto" na aba Informações do Cliente do Projeto. O tipo de telhado é específico desta Proposta.
+                        Este endereço é específico desta Proposta: alterá-lo aqui não muda o cadastro do Cliente nem o Projeto.
                     </p>
                 </div>
             </div>

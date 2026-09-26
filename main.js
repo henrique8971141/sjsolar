@@ -69,6 +69,7 @@ import {
 // ---- proposta.js (TELA PRÓPRIA da Proposta — separada do Orçamento) ----
 import {
     switchPropostaStep,
+    avancarPropostaStep,
     editarProposta,
     closePropostaEditor,
     salvarProposta
@@ -187,6 +188,7 @@ window.excluirProjetoAtual = excluirProjetoAtual;
 
 // proposta.js (TELA PRÓPRIA da Proposta)
 window.switchPropostaStep = switchPropostaStep;
+window.avancarPropostaStep = avancarPropostaStep;
 window.editarProposta = editarProposta;
 window.closePropostaEditor = closePropostaEditor;
 window.salvarProposta = salvarProposta;
