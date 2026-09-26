@@ -46,6 +46,17 @@ function popularSelectDistribuidoraProposta() {
     select.dataset.populado = '1';
 }
 
+// Mostra/esconde o campo de descrição livre quando "Outro" é selecionado
+// no Tipo de Telhado. Exposta em window porque é chamada via onchange
+// inline no HTML (mesmo padrão usado no restante do arquivo).
+function toggleTipoTelhadoOutroProposta() {
+    const select = document.getElementById('proposta-loc-tipo-telhado');
+    const wrap = document.getElementById('proposta-loc-tipo-telhado-outro-wrap');
+    if (!select || !wrap) return;
+    wrap.classList.toggle('hidden', select.value !== 'Outro');
+}
+window.__toggleTipoTelhadoOutroProposta = toggleTipoTelhadoOutroProposta;
+
 // Carrega a Localização (2.3.2) a partir da localização de instalação do
 // Projeto — nunca do endereço cadastral do Cliente, que é um conceito
 // diferente. Fonte: state.localProjetos, campos instalacao_*.
@@ -59,6 +70,13 @@ function preencherLocalizacaoDaProposta(projeto) {
     document.getElementById('proposta-loc-bairro').value = projeto.instalacao_bairro || '';
     document.getElementById('proposta-loc-cidade').value = projeto.instalacao_cidade || '';
     document.getElementById('proposta-loc-uf').value = projeto.instalacao_estado || '';
+
+    // Tipo de telhado é campo próprio da Proposta (não vem do Projeto).
+    // Reseta a cada abertura; editarProposta() preenche por cima se já
+    // houver valor salvo.
+    document.getElementById('proposta-loc-tipo-telhado').value = '';
+    document.getElementById('proposta-loc-tipo-telhado-outro').value = '';
+    toggleTipoTelhadoOutroProposta();
 
     const distribuidoraSelect = document.getElementById('proposta-loc-distribuidora');
     const badge = document.getElementById('proposta-loc-distribuidora-auto-badge');
@@ -127,6 +145,16 @@ export function editarProposta(id) {
         document.getElementById('proposta-loc-distribuidora').value = o.distribuidora;
         document.getElementById('proposta-loc-distribuidora-auto-badge').classList.add('hidden');
     }
+    if (o.tipo_telhado) {
+        document.getElementById('proposta-loc-tipo-telhado').value = o.tipo_telhado;
+        // Se o valor salvo não bate com nenhuma opção fixa, é uma descrição
+        // livre de "Outro" (comportamento igual ao já usado pelo Orçamento).
+        if (!document.getElementById('proposta-loc-tipo-telhado').value) {
+            document.getElementById('proposta-loc-tipo-telhado').value = 'Outro';
+            document.getElementById('proposta-loc-tipo-telhado-outro').value = o.tipo_telhado;
+        }
+        toggleTipoTelhadoOutroProposta();
+    }
 
     document.getElementById('proposta-editor-title').textContent = 'Editar Proposta';
     document.getElementById('proposta-editor-subtitle').textContent = `Projeto: ${projeto.nome}`;
@@ -160,6 +188,11 @@ export async function salvarProposta() {
     const validade = new Date();
     validade.setDate(validade.getDate() + 15);
 
+    const tipoTelhadoSelecionado = document.getElementById('proposta-loc-tipo-telhado').value;
+    const tipoTelhado = tipoTelhadoSelecionado === 'Outro'
+        ? (document.getElementById('proposta-loc-tipo-telhado-outro').value || null)
+        : (tipoTelhadoSelecionado || null);
+
     // Campos das etapas ainda não implementadas (2.3.3 em diante) recebem
     // valores neutros só para satisfazer colunas obrigatórias da mesma
     // tabela "orcamentos" usada pelo Orçamento — nada disso é editável
@@ -170,6 +203,7 @@ export async function salvarProposta() {
         tipo_orcamento: document.getElementById('proposta-tipo').value,
         tipo_servico_detalhado: document.getElementById('proposta-tipo-detalhado').value,
         distribuidora: document.getElementById('proposta-loc-distribuidora').value || null,
+        tipo_telhado: tipoTelhado,
         valor_equipamentos: 0,
         valor_mao_de_obra: 0,
         valor_outros: 0,

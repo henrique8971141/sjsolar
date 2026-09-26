@@ -1047,6 +1047,22 @@
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">UF</label>
                             <input type="text" id="proposta-loc-uf" readonly placeholder="—" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-sm">
                         </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Telhado</label>
+                            <select id="proposta-loc-tipo-telhado" onchange="window.__toggleTipoTelhadoOutroProposta()" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                                <option value="">Selecione</option>
+                                <option value="Cerâmico">Cerâmico</option>
+                                <option value="Metálico">Metálico</option>
+                                <option value="Fibrocimento">Fibrocimento</option>
+                                <option value="Laje">Laje</option>
+                                <option value="Solo">Solo</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                        <div id="proposta-loc-tipo-telhado-outro-wrap" class="hidden sm:col-span-2">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Descreva o tipo de telhado</label>
+                            <input type="text" id="proposta-loc-tipo-telhado-outro" placeholder="Ex: Shingle, Zinco, etc." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
+                        </div>
                         <div class="sm:col-span-2">
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
                                 Distribuidora
@@ -1058,7 +1074,7 @@
                         </div>
                     </div>
                     <p class="text-xs text-slate-400">
-                        Esta localização é a instalação do Projeto e é independente do endereço cadastral do Cliente. Para editá-la, use "Editar Projeto" na aba Informações do Cliente do Projeto.
+                        O endereço acima é a instalação do Projeto e é independente do endereço cadastral do Cliente. Para editá-lo, use "Editar Projeto" na aba Informações do Cliente do Projeto. O tipo de telhado é específico desta Proposta.
                     </p>
                 </div>
             </div>
