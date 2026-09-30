@@ -9,7 +9,8 @@
 //   /clientes                    -> Listagem de clientes
 //   /projetos                    -> Listagem de projetos
 //   /orcamentos                  -> Listagem de orçamentos
-//   /catalogo                    -> Catálogo de produtos/serviços
+//   /catalogo                    -> Catálogo Geral de produtos/serviços
+//   /catalogo-fotovoltaico       -> Catálogo Fotovoltaico (módulos e inversores)
 //   /projeto/:id                 -> Área do projeto (sub-aba padrão: Orçamentos)
 //   /projeto/:id/orcamentos      -> Orçamentos do projeto
 //   /projeto/:id/documentos      -> Documentos do projeto
@@ -27,6 +28,7 @@
 import { state } from './state.js';
 import { switchTab } from './ui.js';
 import { renderProjetoNaRota } from './projetos.js';
+import { carregarCatalogoFotovoltaico } from './catalogo-fotovoltaico.js';
 
 // Rotas de 1 segmento que apenas trocam de aba (mesmo padrão de switchTab
 // já usado por essas telas antes do Router existir).
@@ -34,7 +36,8 @@ const ROTAS_SIMPLES = {
     projetos: { nome: 'projetos', tabId: 'projetos-tab' },
     clientes: { nome: 'clientes', tabId: 'clientes-tab' },
     orcamentos: { nome: 'orcamentos', tabId: 'orcamentos-tab' },
-    catalogo: { nome: 'catalogo', tabId: 'produtos-tab' }
+    catalogo: { nome: 'catalogo', tabId: 'produtos-tab' },
+    'catalogo-fotovoltaico': { nome: 'catalogo-fotovoltaico', tabId: 'fotovoltaico-tab' }
 };
 
 // Nome da sub-aba na URL -> nome interno usado pela área do projeto.
@@ -96,6 +99,12 @@ export function handleRota() {
 
     if (rota.nome === 'clientes' || rota.nome === 'orcamentos' || rota.nome === 'catalogo') {
         switchTab(rota.tabId);
+        return;
+    }
+
+    if (rota.nome === 'catalogo-fotovoltaico') {
+        switchTab(rota.tabId);
+        carregarCatalogoFotovoltaico();
         return;
     }
 

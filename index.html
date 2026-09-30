@@ -219,7 +219,10 @@
                 <i class="fa-solid fa-users w-4 text-center"></i> <span class="sidebar-label">Clientes</span>
             </button>
             <button onclick="navegarPara('/catalogo')" id="nav-produtos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
-                <i class="fa-solid fa-tags w-4 text-center"></i> <span class="sidebar-label">Catálogo</span>
+                <i class="fa-solid fa-tags w-4 text-center"></i> <span class="sidebar-label">Catálogo Geral</span>
+            </button>
+            <button onclick="navegarPara('/catalogo-fotovoltaico')" id="nav-fotovoltaico-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
+                <i class="fa-solid fa-solar-panel w-4 text-center"></i> <span class="sidebar-label">Catálogo Fotovoltaico</span>
             </button>
             <button onclick="navegarPara('/projetos')" id="nav-projetos-tab" class="sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-800">
                 <i class="fa-solid fa-diagram-project w-4 text-center"></i> <span class="sidebar-label">Projetos</span>
@@ -520,6 +523,113 @@
                 </div>
             </div>
         </div>
+
+        <!-- ABA: CATÁLOGO FOTOVOLTAICO (módulos e inversores) -->
+        <section id="fotovoltaico-tab" class="tab-content hidden space-y-6">
+            <div class="flex gap-2">
+                <button id="fv-sub-modulos" onclick="switchFvSubAba('modulos')">Módulos</button>
+                <button id="fv-sub-inversores" onclick="switchFvSubAba('inversores')">Inversores</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                    <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider"><i class="fa-solid fa-folder-plus mr-1 text-amber-500"></i> Novo Item</h3>
+                    <div id="fv-form-modulos" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Código</label>
+                            <input type="text"  id="fvm-codigo" placeholder="Opcional" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Descrição *</label>
+                            <input type="text"  id="fvm-descricao" placeholder="Ex: Módulo 550W Monocristalino" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Marca *</label>
+                            <input type="text"  id="fvm-marca" placeholder="Ex: Canadian" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Potência (Wp) *</label>
+                            <input type="text" inputmode="decimal" id="fvm-potencia" placeholder="550" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Preço Base (R$)</label>
+                            <input type="text" inputmode="decimal" id="fvm-preco" placeholder="0,00" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <button onclick="salvarItemFv()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar Módulo</button>
+                    </div>
+                    <div id="fv-form-inversores" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Código</label>
+                            <input type="text"  id="fvi-codigo" placeholder="Opcional" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Descrição *</label>
+                            <input type="text"  id="fvi-descricao" placeholder="Ex: Inversor String 5kW" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Marca *</label>
+                            <input type="text"  id="fvi-marca" placeholder="Ex: Growatt" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tipo *</label>
+                            <select id="fvi-tipo" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                <option value="TRADICIONAL">TRADICIONAL</option>
+                                <option value="MICRO INVERSOR">MICRO INVERSOR</option>
+                                <option value="OTIMIZADOR">OTIMIZADOR</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Potência (W) *</label>
+                            <input type="text" inputmode="decimal" id="fvi-potencia" placeholder="5000" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Preço Base (R$)</label>
+                            <input type="text" inputmode="decimal" id="fvi-preco" placeholder="0,00" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <button onclick="salvarItemFv()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-800 transition-colors">Cadastrar Inversor</button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4 lg:col-span-2">
+                    <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider"><i class="fa-solid fa-file-excel mr-1 text-emerald-500"></i> Importar via Planilha (CSV)</h3>
+                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 overflow-x-auto">
+                        <code id="fv-csv-colunas" class="text-xs text-slate-700 block whitespace-pre"></code>
+                    </div>
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer" onclick="document.getElementById('fv-csv-input').click()">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+                        <span class="text-xs font-semibold text-slate-600">Selecione o arquivo CSV</span>
+                        <span class="text-[10px] text-slate-400 mt-1">Aba atual define a tabela de destino. Aceita ; ou , e decimal com vírgula.</span>
+                        <input type="file" id="fv-csv-input" accept=".csv" class="hidden" onchange="importarCsvFv(event)">
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <button onclick="exportarFv()" class="text-slate-500 font-bold hover:underline"><i class="fa-solid fa-file-export mr-1"></i> Exportar lista atual</button>
+                        <button onclick="baixarModeloFv()" class="text-amber-600 font-bold hover:underline"><i class="fa-solid fa-download mr-1"></i> Baixar Tabela Exemplo</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                <div class="p-4 bg-slate-100 border-b border-slate-200 flex flex-wrap gap-2 justify-between items-center">
+                    <div class="flex flex-wrap gap-2">
+                        <input type="text" id="fv-busca" oninput="renderFotovoltaico()" placeholder="Buscar descrição, marca ou código..." class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <select id="fv-filtro-marca" onchange="renderFotovoltaico()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs"></select>
+                        <select id="fv-filtro-tipo" onchange="renderFotovoltaico()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs hidden">
+                            <option value="">Todos os tipos</option>
+                            <option value="TRADICIONAL">TRADICIONAL</option>
+                            <option value="MICRO INVERSOR">MICRO INVERSOR</option>
+                            <option value="OTIMIZADOR">OTIMIZADOR</option>
+                        </select>
+                    </div>
+                    <span class="text-xs text-slate-500 font-semibold" id="fv-count-badge">0 itens</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead><tr id="fv-thead" class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider"></tr></thead>
+                        <tbody id="fv-lista-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
         <!-- ABA 4: CATÁLOGO DE PRODUTOS E MÃO DE OBRA -->
         <section id="produtos-tab" class="tab-content hidden space-y-6">

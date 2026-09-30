@@ -93,6 +93,17 @@ import {
     salvarCamposKit
 } from './kit-gerador.js';
 
+// ---- catalogo-fotovoltaico.js (Catálogo Fotovoltaico: módulos/inversores) ----
+import {
+    switchFvSubAba,
+    renderFotovoltaico,
+    salvarItemFv,
+    excluirItemFv,
+    baixarModeloFv,
+    exportarFv,
+    importarCsvFv
+} from './catalogo-fotovoltaico.js';
+
 // ---- catalogo.js ----
 import {
     saveQuickItem,
@@ -224,6 +235,15 @@ window.selecionarEquipamentoCatalogo = selecionarEquipamentoCatalogo;
 window.atualizarQuantidadeEquipamento = atualizarQuantidadeEquipamento;
 window.removerEquipamento = removerEquipamento;
 window.salvarCamposKit = salvarCamposKit;
+
+// catalogo-fotovoltaico.js
+window.switchFvSubAba = switchFvSubAba;
+window.renderFotovoltaico = renderFotovoltaico;
+window.salvarItemFv = salvarItemFv;
+window.excluirItemFv = excluirItemFv;
+window.baixarModeloFv = baixarModeloFv;
+window.exportarFv = exportarFv;
+window.importarCsvFv = importarCsvFv;
 
 // catalogo.js
 window.saveQuickItem = saveQuickItem;
