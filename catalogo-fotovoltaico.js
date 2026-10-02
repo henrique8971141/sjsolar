@@ -187,7 +187,8 @@ function parseCSV(texto, delim) {
     return linhas;
 }
 
-const semAcento = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[*\s]/g, '').toUpperCase();
+// Normaliza cabeçalho: sem acento, sem símbolos/espaços/_ (ex.: "POTÊNCIA (Wp)*" -> "POTENCIAWP")
+const semAcento = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
 export function baixarModeloFv() {
     const cfg = CONFIG[subAba];
@@ -229,11 +230,23 @@ export function importarCsvFv(event) {
 
         // mapeia colunas pelo cabeçalho (ordem livre)
         const cab = linhas[0].map(semAcento);
-        const idx = nome => cab.indexOf(nome);
-        const col = { descricao: idx('DESCRICAO'), marca: idx('MARCA'), codigo: idx('CODIGO'), preco: idx('PRECO'),
-                      potencia: idx(tabela === 'modulos' ? 'POTENCIAWP' : 'POTENCIAW'), tipo: idx('TIPO') };
-        if (col.descricao < 0 || col.marca < 0 || col.potencia < 0 || (tabela === 'inversores' && col.tipo < 0)) {
-            alert('Cabeçalho inválido. Baixe o modelo de planilha e use as mesmas colunas.');
+        const idx = (...nomes) => cab.findIndex(c => nomes.includes(c));
+        const col = {
+            descricao: idx('DESCRICAO', 'NOME', 'PRODUTO'),
+            marca: idx('MARCA', 'FABRICANTE'),
+            codigo: idx('CODIGO', 'COD', 'MODELO'),
+            preco: idx('PRECO', 'VALOR'),
+            potencia: tabela === 'modulos'
+                ? idx('POTENCIAWP', 'POTENCIA', 'WP')
+                : idx('POTENCIAW', 'POTENCIA', 'W', 'POTENCIAKW'),
+            tipo: idx('TIPO')
+        };
+        const faltando = [];
+        if (col.descricao < 0) faltando.push('DESCRICAO');
+        if (col.marca < 0) faltando.push('MARCA');
+        if (col.potencia < 0) faltando.push(tabela === 'modulos' ? 'POTENCIA_WP' : 'POTENCIA_W');
+        if (faltando.length) {
+            alert(`Cabeçalho inválido. Faltando: ${faltando.join(', ')}.\n\nLido na planilha: ${linhas[0].join(' | ')}\n\nConfira se está na aba certa (${CONFIG[tabela].rotulo}) e baixe o modelo.`);
             return;
         }
         const get = (l, i) => (i >= 0 && l[i] != null ? l[i].trim() : '');
