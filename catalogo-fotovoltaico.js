@@ -112,7 +112,7 @@ export function renderFotovoltaico() {
             ${ehMod ? '' : `<td class="px-6 py-4 text-xs font-bold text-slate-600">${esc(p.tipo)}</td>`}
             <td class="px-6 py-4 text-right font-bold text-slate-700">${ehMod
                 ? Number(p.potencia_wp || 0).toLocaleString('pt-BR') + ' Wp'
-                : Number(p.potencia_w || 0).toLocaleString('pt-BR') + ' W'}</td>
+                : Number(p.potencia || 0).toLocaleString('pt-BR') + ' W'}</td>
             <td class="px-6 py-4 text-right font-bold text-emerald-700">${brl(p.preco)}</td>
             <td class="px-6 py-4 text-center">
                 <button onclick="excluirItemFv('${esc(p.id)}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"><i class="fa-solid fa-trash-can"></i></button>
@@ -134,9 +134,9 @@ export async function salvarItemFv() {
         preco: num(v('preco'))
     };
     if (ehMod) item.potencia_wp = num(v('potencia'));
-    else { item.potencia_w = num(v('potencia')); item.tipo = normalizarTipo(v('tipo')); }
+    else { item.potencia = num(v('potencia')); item.tipo = normalizarTipo(v('tipo')); }
 
-    const pot = ehMod ? item.potencia_wp : item.potencia_w;
+    const pot = ehMod ? item.potencia_wp : item.potencia;
     if (!item.descricao || !item.marca || !pot) {
         alert('Descrição, marca e potência são obrigatórias.');
         return;
@@ -201,7 +201,7 @@ export function exportarFv() {
     const aspas = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const linhas = dados[subAba].map(p => subAba === 'modulos'
         ? [p.descricao, p.marca, p.potencia_wp, p.preco, p.codigo]
-        : [p.descricao, p.marca, p.tipo, p.potencia_w, p.preco, p.codigo]);
+        : [p.descricao, p.marca, p.tipo, p.potencia, p.preco, p.codigo]);
     const csv = '\ufeff' + cfg.colunasCsv.join(';') + '\n' + linhas.map(l => l.map(aspas).join(';')).join('\n');
     baixar(csv, `${cfg.tabela}_sj_solar.csv`);
 }
@@ -256,7 +256,7 @@ export function importarCsvFv(event) {
             const item = { descricao: get(l, col.descricao), marca: get(l, col.marca), codigo: get(l, col.codigo), preco: num(get(l, col.preco)) };
             const pot = num(get(l, col.potencia));
             if (tabela === 'modulos') item.potencia_wp = pot;
-            else { item.potencia_w = pot; item.tipo = normalizarTipo(get(l, col.tipo)); }
+            else { item.potencia = pot; item.tipo = normalizarTipo(get(l, col.tipo)); }
             if (item.descricao && item.marca && pot > 0) itens.push(item);
             else ignoradas.push(n + 2);
         });
