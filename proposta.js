@@ -26,9 +26,6 @@ import { carregarKitGerador } from './kit-gerador.js';
 
 const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador'];
 
-const STEP_ATIVO = "proposta-step-link border-amber-500 text-slate-900";
-const STEP_INATIVO = "proposta-step-link border-transparent text-slate-400 hover:text-slate-700";
-
 let passoAtualProposta = 'cliente-servico';
 let listenersLocalizacaoLigados = false;
 
@@ -37,11 +34,20 @@ let listenersLocalizacaoLigados = false;
 // ------------------------------------------------------------------
 export async function switchPropostaStep(step) {
     passoAtualProposta = step;
-    STEPS.forEach(s => {
+    const idxAtual = STEPS.indexOf(step);
+    STEPS.forEach((s, i) => {
         const painel = document.getElementById(`proposta-step-${s}`);
         const link = document.querySelector(`[data-proposta-step="${s}"]`);
         if (painel) painel.classList.toggle('hidden', s !== step);
-        if (link) link.className = s === step ? STEP_ATIVO : STEP_INATIVO;
+        if (link) {
+            // active = etapa atual | done = etapas anteriores (✓) | todo = próximas
+            const estado = i === idxAtual ? 'active' : (i < idxAtual ? 'done' : 'todo');
+            link.dataset.state = estado;
+            link.querySelector('.pstep-circle').innerHTML = estado === 'done' ? '<i class="fa-solid fa-check"></i>' : String(i + 1);
+            // a linha que liga esta etapa à próxima fica "preenchida" quando já passou
+            const linha = link.nextElementSibling;
+            if (linha && linha.classList.contains('pstep-line')) linha.dataset.done = i < idxAtual ? '1' : '0';
+        }
     });
     atualizarBotaoRodapeProposta();
 

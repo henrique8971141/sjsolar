@@ -25,6 +25,19 @@
 
 
     <style>
+        /* Stepper da Proposta */
+        .pstep { display:flex; align-items:center; gap:.625rem; padding:.25rem .5rem; border-radius:.75rem; background:transparent; border:0; cursor:pointer; white-space:nowrap; }
+        .pstep-circle { width:2rem; height:2rem; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:800; flex-shrink:0; transition:all .2s; background:#f1f5f9; color:#94a3b8; border:2px solid #e2e8f0; }
+        .pstep-label { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; transition:color .2s; }
+        .pstep:hover .pstep-label { color:#334155; }
+        .pstep[data-state="active"] .pstep-circle { background:#fbbf24; color:#0f172a; border-color:#fbbf24; box-shadow:0 0 0 4px rgba(251,191,36,.25); }
+        .pstep[data-state="active"] .pstep-label { color:#0f172a; }
+        .pstep[data-state="done"] .pstep-circle { background:#0f172a; color:#fbbf24; border-color:#0f172a; }
+        .pstep[data-state="done"] .pstep-label { color:#334155; }
+        .pstep-line { flex:1 1 1.5rem; min-width:1rem; height:2px; background:#e2e8f0; border-radius:2px; transition:background .2s; }
+        .pstep-line[data-done="1"] { background:#0f172a; }
+        @media (max-width:640px) { .pstep[data-state="todo"] .pstep-label, .pstep[data-state="done"] .pstep-label { display:none; } }
+
         body {
             font-family: 'Inter', sans-serif;
         }
@@ -1096,12 +1109,27 @@
                 </div>
             </div>
 
-            <!-- Navegação entre etapas da Proposta -->
-            <div class="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
-                <button type="button" data-proposta-step="cliente-servico" onclick="switchPropostaStep('cliente-servico')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Cliente e Serviço</button>
-                <button type="button" data-proposta-step="localizacao" onclick="switchPropostaStep('localizacao')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Localização</button>
-                <button type="button" data-proposta-step="unidades-consumidoras" onclick="switchPropostaStep('unidades-consumidoras')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Unidades Consumidoras</button>
-                <button type="button" data-proposta-step="kit-gerador" onclick="switchPropostaStep('kit-gerador')" class="proposta-step-link px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 -mb-px whitespace-nowrap">Kit Gerador</button>
+            <!-- Navegação entre etapas da Proposta (stepper) -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs px-4 py-3 flex items-center gap-2 overflow-x-auto">
+                <button type="button" data-proposta-step="cliente-servico" data-state="todo" onclick="switchPropostaStep('cliente-servico')" class="pstep">
+                    <span class="pstep-circle">1</span>
+                    <span class="pstep-label">Cliente e Serviço</span>
+                </button>
+                <div class="pstep-line"></div>
+                <button type="button" data-proposta-step="localizacao" data-state="todo" onclick="switchPropostaStep('localizacao')" class="pstep">
+                    <span class="pstep-circle">2</span>
+                    <span class="pstep-label">Localização</span>
+                </button>
+                <div class="pstep-line"></div>
+                <button type="button" data-proposta-step="unidades-consumidoras" data-state="todo" onclick="switchPropostaStep('unidades-consumidoras')" class="pstep">
+                    <span class="pstep-circle">3</span>
+                    <span class="pstep-label">Unidades Consumidoras</span>
+                </button>
+                <div class="pstep-line"></div>
+                <button type="button" data-proposta-step="kit-gerador" data-state="todo" onclick="switchPropostaStep('kit-gerador')" class="pstep">
+                    <span class="pstep-circle">4</span>
+                    <span class="pstep-label">Kit Gerador</span>
+                </button>
             </div>
 
             <input type="hidden" id="proposta-id">
@@ -1238,41 +1266,159 @@
                  separado aqui. A potência do sistema é sempre calculada
                  automaticamente a partir dos módulos selecionados; nunca é
                  um campo digitável. -->
-            <div id="proposta-step-kit-gerador" class="proposta-step-panel hidden space-y-6">
+            <div id="proposta-step-kit-gerador" class="proposta-step-panel hidden space-y-5">
                 <div id="kit-gerador-erro" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
 
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                <!-- Resumo (sempre calculado, nunca digitado) -->
+                <div class="bg-slate-900 text-white rounded-xl shadow-md p-6 grid grid-cols-1 md:grid-cols-4 gap-5 items-center">
+                    <div class="md:col-span-2">
+                        <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Potência do Sistema</p>
+                        <p id="kit-potencia-sistema" class="text-5xl font-black mt-1">0,00 kWp</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Calculada automaticamente a partir dos módulos.</p>
+                    </div>
+                    <div class="grid grid-cols-3 md:col-span-2 gap-3 text-center">
+                        <div class="bg-white/10 rounded-lg py-3">
+                            <p id="kit-resumo-modulos" class="text-xl font-black">0</p>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Módulos</p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg py-3">
+                            <p id="kit-resumo-inversao" class="text-xl font-black">—</p>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Inversão (CA)</p>
+                        </div>
+                        <div class="bg-white/10 rounded-lg py-3">
+                            <p id="kit-resumo-relacao" class="text-xl font-black">—</p>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Relação CC/CA</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Topologia -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
                     <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-diagram-project mr-1 text-amber-500"></i> Topologia</h3>
-                    <select id="kit-topologia" onchange="alterarTopologia()" class="w-full sm:w-72 px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm">
-                        <option value="Tradicional">Tradicional</option>
-                        <option value="Microinversor">Microinversor</option>
-                        <option value="Otimizadores">Otimizadores</option>
-                    </select>
-                    <p class="text-xs text-slate-400">A topologia orienta quais equipamentos são relevantes, mas nada já cadastrado é apagado automaticamente.</p>
+                    <div class="flex flex-wrap gap-3">
+                    <button type="button" data-kit-topologia="Tradicional" onclick="alterarTopologia('Tradicional')">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-plug-circle-bolt text-amber-500"></i>
+                            <div>
+                                <p class="text-sm font-extrabold text-slate-900">Tradicional</p>
+                                <p class="text-[11px] text-slate-500">Módulos + inversor string</p>
+                            </div>
+                        </div>
+                    </button>
+                    <button type="button" data-kit-topologia="Microinversor" onclick="alterarTopologia('Microinversor')">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-microchip text-amber-500"></i>
+                            <div>
+                                <p class="text-sm font-extrabold text-slate-900">Microinversor</p>
+                                <p class="text-[11px] text-slate-500">Um microinversor por módulo(s)</p>
+                            </div>
+                        </div>
+                    </button>
+                    <button type="button" data-kit-topologia="Otimizadores" onclick="alterarTopologia('Otimizadores')">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-sliders text-amber-500"></i>
+                            <div>
+                                <p class="text-sm font-extrabold text-slate-900">Otimizadores</p>
+                                <p class="text-[11px] text-slate-500">Inversor + otimizadores</p>
+                            </div>
+                        </div>
+                    </button>
+                    </div>
+                    <p class="text-xs text-slate-400">A topologia define quais blocos aparecem. Nada já cadastrado é apagado ao trocar.</p>
                 </div>
 
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
-                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-solar-panel mr-1 text-amber-500"></i> Módulos Fotovoltaicos</h3>
-                    <div id="kit-lista-modulos" class="space-y-2"></div>
+                <div id="kit-bloco-MODULO" class="bg-white rounded-xl border border-slate-200 shadow-xs">
+                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-xl flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center"><i class="fa-solid fa-solar-panel text-sm"></i></span>
+                            <h3 class="font-bold text-slate-800 text-sm">Módulos Fotovoltaicos</h3>
+                            <span id="kit-count-MODULO" class="min-w-6 text-center px-2 py-0.5 rounded-full bg-slate-900 text-white text-[11px] font-bold">0</span>
+                            <span id="kit-fora-MODULO" class="hidden px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">fora da topologia</span>
+                        </div>
+                        <span id="kit-subtotal-MODULO" class="text-xs font-extrabold text-slate-500"></span>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div id="kit-lista-MODULO" class="space-y-2.5"></div>
+                        <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="kit-busca-MODULO" placeholder="Buscar módulo por marca, descrição ou código..." autocomplete="off"
+                                oninput="buscarEquipamentoCatalogo('MODULO', 'kit-busca-MODULO')"
+                                onfocus="buscarEquipamentoCatalogo('MODULO', 'kit-busca-MODULO')"
+                                class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                            <div id="kit-busca-MODULO-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="kit-bloco-INVERSOR" class="bg-white rounded-xl border border-slate-200 shadow-xs">
+                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-xl flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center"><i class="fa-solid fa-plug-circle-bolt text-sm"></i></span>
+                            <h3 class="font-bold text-slate-800 text-sm">Inversores</h3>
+                            <span id="kit-count-INVERSOR" class="min-w-6 text-center px-2 py-0.5 rounded-full bg-slate-900 text-white text-[11px] font-bold">0</span>
+                            <span id="kit-fora-INVERSOR" class="hidden px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">fora da topologia</span>
+                        </div>
+                        <span id="kit-subtotal-INVERSOR" class="text-xs font-extrabold text-slate-500"></span>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div id="kit-lista-INVERSOR" class="space-y-2.5"></div>
+                        <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="kit-busca-INVERSOR" placeholder="Buscar inversor tradicional..." autocomplete="off"
+                                oninput="buscarEquipamentoCatalogo('INVERSOR', 'kit-busca-INVERSOR')"
+                                onfocus="buscarEquipamentoCatalogo('INVERSOR', 'kit-busca-INVERSOR')"
+                                class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                            <div id="kit-busca-INVERSOR-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="kit-bloco-MICROINVERSOR" class="bg-white rounded-xl border border-slate-200 shadow-xs">
+                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-xl flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center"><i class="fa-solid fa-microchip text-sm"></i></span>
+                            <h3 class="font-bold text-slate-800 text-sm">Microinversores</h3>
+                            <span id="kit-count-MICROINVERSOR" class="min-w-6 text-center px-2 py-0.5 rounded-full bg-slate-900 text-white text-[11px] font-bold">0</span>
+                            <span id="kit-fora-MICROINVERSOR" class="hidden px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">fora da topologia</span>
+                        </div>
+                        <span id="kit-subtotal-MICROINVERSOR" class="text-xs font-extrabold text-slate-500"></span>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div id="kit-lista-MICROINVERSOR" class="space-y-2.5"></div>
+                        <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="kit-busca-MICROINVERSOR" placeholder="Buscar microinversor..." autocomplete="off"
+                                oninput="buscarEquipamentoCatalogo('MICROINVERSOR', 'kit-busca-MICROINVERSOR')"
+                                onfocus="buscarEquipamentoCatalogo('MICROINVERSOR', 'kit-busca-MICROINVERSOR')"
+                                class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                            <div id="kit-busca-MICROINVERSOR-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="kit-bloco-OTIMIZADOR" class="bg-white rounded-xl border border-slate-200 shadow-xs">
+                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-xl flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-sliders text-sm"></i></span>
+                            <h3 class="font-bold text-slate-800 text-sm">Otimizadores</h3>
+                            <span id="kit-count-OTIMIZADOR" class="min-w-6 text-center px-2 py-0.5 rounded-full bg-slate-900 text-white text-[11px] font-bold">0</span>
+                            <span id="kit-fora-OTIMIZADOR" class="hidden px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">fora da topologia</span>
+                        </div>
+                        <span id="kit-subtotal-OTIMIZADOR" class="text-xs font-extrabold text-slate-500"></span>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div id="kit-lista-OTIMIZADOR" class="space-y-2.5"></div>
+                        <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="kit-busca-OTIMIZADOR" placeholder="Buscar otimizador..." autocomplete="off"
+                                oninput="buscarEquipamentoCatalogo('OTIMIZADOR', 'kit-busca-OTIMIZADOR')"
+                                onfocus="buscarEquipamentoCatalogo('OTIMIZADOR', 'kit-busca-OTIMIZADOR')"
+                                class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                            <div id="kit-busca-OTIMIZADOR-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-y-auto"></div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
-                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-plug-circle-bolt mr-1 text-amber-500"></i> Inversores</h3>
-                    <div id="kit-lista-inversores" class="space-y-2"></div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
-                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-microchip mr-1 text-amber-500"></i> Microinversores</h3>
-                    <div id="kit-lista-microinversores" class="space-y-2"></div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
-                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-sliders mr-1 text-amber-500"></i> Otimizadores</h3>
-                    <div id="kit-lista-otimizadores" class="space-y-2"></div>
-                </div>
-
+                <!-- Identificação do Kit -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-box mr-1 text-amber-500"></i> Kit</h3>
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-box mr-1 text-amber-500"></i> Identificação do Kit</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nome do Kit</label>
@@ -1287,12 +1433,6 @@
                             <textarea id="kit-observacao" onblur="salvarCamposKit()" rows="2" placeholder="Observações sobre o kit..." class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm"></textarea>
                         </div>
                     </div>
-                </div>
-
-                <div class="bg-slate-900 text-white p-6 rounded-xl shadow-md text-center space-y-1">
-                    <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Potência do Sistema</p>
-                    <p id="kit-potencia-sistema" class="text-4xl font-black">0,00 kWp</p>
-                    <p id="kit-potencia-resumo" class="text-xs text-slate-300"></p>
                 </div>
             </div>
 
