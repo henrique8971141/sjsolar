@@ -97,6 +97,8 @@ import {
 import {
     switchFvSubAba,
     renderFotovoltaico,
+    mudarPaginaFv,
+    mudarPorPaginaFv,
     salvarItemFv,
     excluirItemFv,
     baixarModeloFv,
@@ -239,6 +241,8 @@ window.salvarCamposKit = salvarCamposKit;
 // catalogo-fotovoltaico.js
 window.switchFvSubAba = switchFvSubAba;
 window.renderFotovoltaico = renderFotovoltaico;
+window.mudarPaginaFv = mudarPaginaFv;
+window.mudarPorPaginaFv = mudarPorPaginaFv;
 window.salvarItemFv = salvarItemFv;
 window.excluirItemFv = excluirItemFv;
 window.baixarModeloFv = baixarModeloFv;

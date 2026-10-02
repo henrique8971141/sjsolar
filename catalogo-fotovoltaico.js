@@ -6,6 +6,8 @@
 import { state } from './state.js';
 
 let subAba = 'modulos';
+let pagina = 1;
+let porPagina = 50; // 0 = todos
 const dados = { modulos: [], inversores: [] };
 
 const TIPOS_INVERSOR = ['TRADICIONAL', 'MICRO INVERSOR', 'OTIMIZADOR'];
@@ -45,21 +47,45 @@ function normalizarTipo(v) {
 }
 
 // ---------- carga / navegação ----------
+// O Supabase devolve no máximo 1000 linhas por consulta. Busca em blocos
+// de 1000 até acabar, para trazer a tabela inteira.
+async function buscarTudo(tabela) {
+    const TAM = 1000;
+    let todos = [];
+    for (let ini = 0; ; ini += TAM) {
+        const { data, error } = await state.supabaseClient
+            .from(tabela).select('*')
+            .order('marca').order('descricao').order('id')
+            .range(ini, ini + TAM - 1);
+        if (error) { console.error(tabela + ':', error.message); alert(`Erro ao carregar ${tabela}: ${error.message}`); break; }
+        todos = todos.concat(data || []);
+        if (!data || data.length < TAM) break;
+    }
+    return todos;
+}
+
 export async function carregarCatalogoFotovoltaico() {
     if (!state.supabaseClient) return;
-    const [m, i] = await Promise.all([
-        state.supabaseClient.from('modulos').select('*').order('marca').order('descricao'),
-        state.supabaseClient.from('inversores').select('*').order('marca').order('descricao')
-    ]);
-    if (m.error) console.error('modulos:', m.error.message);
-    if (i.error) console.error('inversores:', i.error.message);
-    dados.modulos = m.data || [];
-    dados.inversores = i.data || [];
+    const [m, i] = await Promise.all([buscarTudo('modulos'), buscarTudo('inversores')]);
+    dados.modulos = m;
+    dados.inversores = i;
     renderFotovoltaico();
+}
+
+export function mudarPaginaFv(n) {
+    pagina = n;
+    renderFotovoltaico(true);
+}
+
+export function mudarPorPaginaFv(v) {
+    porPagina = parseInt(v, 10) || 0;
+    pagina = 1;
+    renderFotovoltaico(true);
 }
 
 export function switchFvSubAba(aba) {
     subAba = aba;
+    pagina = 1;
     renderFotovoltaico();
 }
 
@@ -75,8 +101,9 @@ function filtrar() {
     );
 }
 
-export function renderFotovoltaico() {
+export function renderFotovoltaico(manterPagina = false) {
     if (!el('fv-lista-body')) return;
+    if (!manterPagina) pagina = 1; // filtro/busca mudou -> volta p/ página 1
     const ehMod = subAba === 'modulos';
 
     ['modulos', 'inversores'].forEach(a => {
@@ -104,7 +131,13 @@ export function renderFotovoltaico() {
     const lista = filtrar();
     el('fv-count-badge').textContent = `${lista.length} de ${dados[subAba].length} ${CONFIG[subAba].rotulo.toLowerCase()}`;
 
-    el('fv-lista-body').innerHTML = lista.map(p => `
+    const totalPaginas = porPagina ? Math.max(1, Math.ceil(lista.length / porPagina)) : 1;
+    if (pagina > totalPaginas) pagina = totalPaginas;
+    const ini = porPagina ? (pagina - 1) * porPagina : 0;
+    const visiveis = porPagina ? lista.slice(ini, ini + porPagina) : lista;
+    renderPaginador(lista.length, ini, visiveis.length, totalPaginas);
+
+    el('fv-lista-body').innerHTML = visiveis.map(p => `
         <tr class="hover:bg-slate-50 transition-colors">
             <td class="px-6 py-4 font-mono font-bold text-slate-500">${esc(p.codigo) || '-'}</td>
             <td class="px-6 py-4 font-semibold text-slate-900">${esc(p.descricao)}</td>
@@ -119,6 +152,34 @@ export function renderFotovoltaico() {
             </td>
         </tr>`).join('') ||
         `<tr><td colspan="7" class="px-6 py-8 text-center text-xs text-slate-400 font-semibold">Nenhum item encontrado.</td></tr>`;
+}
+
+function renderPaginador(total, ini, qtd, totalPaginas) {
+    el('fv-por-pagina').value = String(porPagina);
+    el('fv-pag-info').textContent = total
+        ? `Mostrando ${ini + 1}–${ini + qtd} de ${total}`
+        : 'Nenhum resultado';
+
+    // janela de páginas: 1 ... 4 5 [6] 7 8 ... 20
+    const nums = new Set([1, totalPaginas]);
+    for (let i = pagina - 2; i <= pagina + 2; i++) if (i >= 1 && i <= totalPaginas) nums.add(i);
+    const ordenadas = [...nums].sort((a, b) => a - b);
+
+    const base = 'min-w-8 px-2.5 py-1.5 rounded-lg text-xs font-bold border ';
+    const btn = (rotulo, alvo, ativo, desab) =>
+        `<button ${desab ? 'disabled' : `onclick="mudarPaginaFv(${alvo})"`} class="${base}${ativo
+            ? 'bg-slate-900 text-white border-slate-900'
+            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}${desab ? ' opacity-40 cursor-not-allowed' : ''}">${rotulo}</button>`;
+
+    let html = btn('<i class="fa-solid fa-chevron-left"></i>', pagina - 1, false, pagina <= 1);
+    let anterior = 0;
+    ordenadas.forEach(n => {
+        if (n - anterior > 1) html += '<span class="px-1 text-slate-400">…</span>';
+        html += btn(n, n, n === pagina, false);
+        anterior = n;
+    });
+    html += btn('<i class="fa-solid fa-chevron-right"></i>', pagina + 1, false, pagina >= totalPaginas);
+    el('fv-pager').innerHTML = totalPaginas > 1 ? html : '';
 }
 
 // ---------- cadastro rápido ----------

@@ -628,6 +628,20 @@
                         <tbody id="fv-lista-body" class="divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
+                <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
+                    <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold">
+                        <span>Itens por página</span>
+                        <select id="fv-por-pagina" onchange="mudarPorPaginaFv(this.value)" class="px-2 py-1.5 rounded-lg border border-slate-200 text-xs">
+                            <option value="10">10</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                            <option value="1000">1000</option>
+                            <option value="0">Todos</option>
+                        </select>
+                        <span id="fv-pag-info" class="text-slate-400"></span>
+                    </div>
+                    <div id="fv-pager" class="flex flex-wrap items-center gap-1"></div>
+                </div>
             </div>
         </section>
 
