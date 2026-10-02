@@ -613,6 +613,13 @@
                     <div class="flex flex-wrap gap-2">
                         <input type="text" id="fv-busca" oninput="renderFotovoltaico()" placeholder="Buscar descrição, marca ou código..." class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-amber-500">
                         <select id="fv-filtro-marca" onchange="renderFotovoltaico()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs"></select>
+                        <select id="fv-por-pagina" onchange="mudarPorPaginaFv(this.value)" title="Itens por página" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
+                            <option value="10">10 por página</option>
+                            <option value="50" selected>50 por página</option>
+                            <option value="100">100 por página</option>
+                            <option value="1000">1000 por página</option>
+                            <option value="0">Todos</option>
+                        </select>
                         <select id="fv-filtro-tipo" onchange="renderFotovoltaico()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs hidden">
                             <option value="">Todos os tipos</option>
                             <option value="TRADICIONAL">TRADICIONAL</option>
@@ -629,17 +636,7 @@
                     </table>
                 </div>
                 <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
-                    <div class="flex items-center gap-2 text-xs text-slate-600 font-semibold">
-                        <span>Itens por página</span>
-                        <select id="fv-por-pagina" onchange="mudarPorPaginaFv(this.value)" class="px-2 py-1.5 rounded-lg border border-slate-200 text-xs">
-                            <option value="10">10</option>
-                            <option value="50" selected>50</option>
-                            <option value="100">100</option>
-                            <option value="1000">1000</option>
-                            <option value="0">Todos</option>
-                        </select>
-                        <span id="fv-pag-info" class="text-slate-400"></span>
-                    </div>
+                    <span id="fv-pag-info" class="text-xs text-slate-500 font-semibold"></span>
                     <div id="fv-pager" class="flex flex-wrap items-center gap-1"></div>
                 </div>
             </div>
