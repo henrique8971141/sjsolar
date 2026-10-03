@@ -12,9 +12,8 @@
 // existentes), mas a TELA de edição é inteiramente própria.
 //
 // Etapas implementadas até agora: Cliente e Serviço, Localização,
-// Unidades Consumidoras (2.3.3) e Kit Gerador / Equipamentos (2.3.4).
-// As etapas seguintes (Formação de Preço em diante) ainda não existem —
-// não implementar aqui até serem pedidas.
+// Unidades Consumidoras (2.3.3), Kit Gerador / Equipamentos (2.3.4) e
+// Revisão + Finalização (2.3.6, que junta as antigas 2.3.6 e 2.3.7).
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
@@ -23,8 +22,9 @@ import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS, UFS, buscarEndereco
 import { irParaSubTabProjeto } from './router.js';
 import { carregarUnidadesConsumidoras } from './unidades-consumidoras.js';
 import { carregarKitGerador } from './kit-gerador.js';
+import { carregarRevisaoProposta } from './revisao-proposta.js';
 
-const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador'];
+const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador', 'revisao'];
 
 let passoAtualProposta = 'cliente-servico';
 let listenersLocalizacaoLigados = false;
@@ -74,6 +74,17 @@ export async function switchPropostaStep(step) {
             return;
         }
         await carregarKitGerador(document.getElementById('proposta-id').value);
+    }
+
+    // Revisão + Finalização (2.3.6): lê tudo o que já foi gravado nas etapas
+    // anteriores, então também precisa da Proposta já gravada.
+    if (step === 'revisao') {
+        const ok = await salvarDadosBaseProposta();
+        if (!ok) {
+            switchPropostaStep('cliente-servico');
+            return;
+        }
+        await carregarRevisaoProposta(document.getElementById('proposta-id').value);
     }
 }
 

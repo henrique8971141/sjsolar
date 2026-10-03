@@ -1162,6 +1162,11 @@
                     <span class="pstep-circle">4</span>
                     <span class="pstep-label">Kit Gerador</span>
                 </button>
+                <div class="pstep-line"></div>
+                <button type="button" data-proposta-step="revisao" data-state="todo" onclick="switchPropostaStep('revisao')" class="pstep">
+                    <span class="pstep-circle">5</span>
+                    <span class="pstep-label">Revisão e Finalização</span>
+                </button>
             </div>
 
             <input type="hidden" id="proposta-id">
@@ -1510,6 +1515,11 @@
                 </div>
             </div>
 
+            <!-- Revisão + Finalização (2.3.6): editor comercial da proposta.
+                 O conteúdo é desenhado por revisao-proposta.js. -->
+            <div id="proposta-step-revisao" class="proposta-step-panel hidden space-y-5">
+                <div id="revisao-conteudo" class="space-y-5"></div>
+            </div>
         </section>
 
         <!-- MODAL: NOVA/EDITAR UNIDADE CONSUMIDORA (etapa 2.3.3 da Proposta) -->
