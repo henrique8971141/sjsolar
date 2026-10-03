@@ -1080,6 +1080,33 @@
         </section>
 
         <!-- ================================================================
+             CONFIGURAÇÕES DE PRECIFICAÇÃO DO PROJETO (rota /projeto/:id/precificacao)
+             Independente do Orçamento Avulso e das etapas da Proposta.
+             ================================================================ -->
+        <section id="precificacao-tab" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="voltarDaPrecificacao()" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors shadow-xs">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-xl font-black text-slate-900 font-brand">Configurações de Precificação</h2>
+                        <p class="text-xs text-slate-400 font-semibold" id="prec-subtitulo">Projeto</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="prec-status" class="text-xs font-semibold text-slate-400"></span>
+                    <button type="button" onclick="restaurarPrecificacaoPadrao()" class="px-4 py-2.5 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 transition-colors">Restaurar padrão</button>
+                    <button type="button" id="btn-salvar-prec" onclick="salvarPrecificacao()" disabled class="opacity-40 cursor-not-allowed px-6 py-2.5 rounded-lg font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk text-amber-400"></i> Salvar configurações
+                    </button>
+                </div>
+            </div>
+            <div id="prec-erro" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
+            <div id="precificacao-conteudo" class="space-y-5"></div>
+        </section>
+
+        <!-- ================================================================
              TELA PRÓPRIA DA PROPOSTA (Fotovoltaico) — completamente separada
              Etapas implementadas até agora: Cliente e Serviço, Localização.
              As demais (Unidades Consumidoras, Kit Gerador, Formação do

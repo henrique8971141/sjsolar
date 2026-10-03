@@ -97,6 +97,14 @@ import {
     salvarCamposKit
 } from './kit-gerador.js';
 
+// ---- precificacao.js (Configurações de Precificação do Projeto) ----
+import {
+    abrirPrecificacaoProjeto,
+    voltarDaPrecificacao,
+    salvarPrecificacao,
+    restaurarPrecificacaoPadrao
+} from './precificacao.js';
+
 // ---- catalogo-fotovoltaico.js (Catálogo Fotovoltaico: módulos/inversores) ----
 import {
     switchFvSubAba,
@@ -245,6 +253,12 @@ window.marcarSelecao = marcarSelecao;
 window.salvarGeracaoKwh = salvarGeracaoKwh;
 window.removerEquipamento = removerEquipamento;
 window.salvarCamposKit = salvarCamposKit;
+
+// precificacao.js
+window.abrirPrecificacaoProjeto = abrirPrecificacaoProjeto;
+window.voltarDaPrecificacao = voltarDaPrecificacao;
+window.salvarPrecificacao = salvarPrecificacao;
+window.restaurarPrecificacaoPadrao = restaurarPrecificacaoPadrao;
 
 // catalogo-fotovoltaico.js
 window.switchFvSubAba = switchFvSubAba;

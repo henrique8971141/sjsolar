@@ -15,6 +15,7 @@
 //   /projeto/:id/orcamentos      -> Orçamentos do projeto
 //   /projeto/:id/documentos      -> Documentos do projeto
 //   /projeto/:id/informacoes     -> Informações do cliente do projeto
+//   /projeto/:id/precificacao    -> Configurações de Precificação do projeto
 //
 // Qualquer outra URL cai em "Página não encontrada". Um :id que não
 // corresponda a nenhum projeto carregado cai em "Projeto não encontrado".
@@ -29,6 +30,7 @@ import { state } from './state.js';
 import { switchTab } from './ui.js';
 import { renderProjetoNaRota } from './projetos.js';
 import { carregarCatalogoFotovoltaico } from './catalogo-fotovoltaico.js';
+import { renderPrecificacaoNaRota } from './precificacao.js';
 
 // Rotas de 1 segmento que apenas trocam de aba (mesmo padrão de switchTab
 // já usado por essas telas antes do Router existir).
@@ -59,6 +61,9 @@ function parseRota(pathname) {
         const projetoId = decodeURIComponent(partes[1]);
         if (partes.length === 2) {
             return { nome: 'projeto', projetoId, subTabUrl: 'orcamentos' };
+        }
+        if (partes.length === 3 && partes[2] === 'precificacao') {
+            return { nome: 'precificacao', projetoId };
         }
         if (partes.length === 3 && SUBTAB_URL_PARA_INTERNO[partes[2]]) {
             return { nome: 'projeto', projetoId, subTabUrl: partes[2] };
@@ -105,6 +110,16 @@ export function handleRota() {
     if (rota.nome === 'catalogo-fotovoltaico') {
         switchTab(rota.tabId);
         carregarCatalogoFotovoltaico();
+        return;
+    }
+
+    if (rota.nome === 'precificacao') {
+        const existe = state.localProjetos.some(p => String(p.id) === String(rota.projetoId));
+        if (!existe) {
+            renderProjetoNaoEncontrado(rota.projetoId);
+            return;
+        }
+        renderPrecificacaoNaRota(rota.projetoId);
         return;
     }
 
