@@ -1346,30 +1346,27 @@
                         <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor total do kit</label>
                         <div class="flex items-center rounded-xl border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-amber-400 focus-within:border-amber-400 transition-shadow">
                             <span class="pl-4 pr-1 text-lg font-semibold text-slate-400 select-none">R$</span>
-                            <input type="text" inputmode="numeric" id="kit-valor" placeholder="0,00" autocomplete="off"
-                                oninput="mascaraMoeda(this)" onfocus="this.select()" onchange="salvarValorKit(this.value)"
+                            <input type="text" inputmode="numeric" id="kit-valor" value="0,00" placeholder="0,00" autocomplete="off"
+                                onbeforeinput="marcarSelecao(this)" oninput="mascaraMoeda(this, event)" onfocus="setTimeout(() => this.setSelectionRange(99, 99))" onchange="salvarValorKit(this.value)"
                                 class="w-full min-w-0 py-3 pl-1 pr-4 text-right text-2xl font-bold text-slate-900 tracking-tight tabular-nums bg-transparent outline-none placeholder:text-slate-300">
                         </div>
                     </div>
-                    <p class="text-xs text-slate-400">Digite só os números, sem vírgula: <b>980000</b> vira <b>R$ 9.800,00</b>.</p>
+                    <p class="text-xs text-slate-400">Digite só os números: os centavos entram sozinhos. Ex.: <b>980000</b> vira <b>R$ 9.800,00</b>.</p>
                 </div>
 
-                <!-- Geração estimada ao mês -->
+                <!-- Geração estimada ao mês (kWh) -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
                     <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-bolt mr-1 text-amber-500"></i> Geração Estimada</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Irradiação — HSP (kWh/m²·dia)</label>
-                            <input type="text" inputmode="decimal" id="kit-hsp" placeholder="5,00" onchange="salvarParametrosGeracao()" onfocus="this.select()"
-                                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-base font-semibold tabular-nums">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Eficiência do sistema (%)</label>
-                            <input type="text" inputmode="decimal" id="kit-eficiencia" placeholder="80" onchange="salvarParametrosGeracao()" onfocus="this.select()"
-                                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-base font-semibold tabular-nums">
+                    <div class="max-w-sm">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Geração estimada ao mês</label>
+                        <div class="flex items-center rounded-xl border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-amber-400 focus-within:border-amber-400 transition-shadow">
+                            <input type="text" inputmode="decimal" id="kit-geracao" placeholder="0" autocomplete="off"
+                                oninput="this.value=this.value.replace(/[^\d.,]/g,'')" onfocus="this.select()" onchange="salvarGeracaoKwh(this.value)"
+                                class="w-full min-w-0 py-3 pl-4 pr-1 text-right text-2xl font-bold text-slate-900 tracking-tight tabular-nums bg-transparent outline-none placeholder:text-slate-300">
+                            <span class="pl-1 pr-4 text-lg font-semibold text-slate-400 select-none">kWh</span>
                         </div>
                     </div>
-                    <p class="text-xs text-slate-400">Geração mensal = potência (kWp) × HSP × 30 dias × eficiência. Ajuste a HSP conforme a cidade do cliente.</p>
+                    <p class="text-xs text-slate-400">Digite o número normalmente (ex.: <b>850</b>). Fica gravado em kWh por mês.</p>
                 </div>
 
                 <div id="kit-bloco-MODULO" class="bg-white rounded-xl border border-slate-200 shadow-xs">

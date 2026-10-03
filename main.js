@@ -91,7 +91,8 @@ import {
     atualizarQuantidadeEquipamento,
     salvarValorKit,
     mascaraMoeda,
-    salvarParametrosGeracao,
+    marcarSelecao,
+    salvarGeracaoKwh,
     removerEquipamento,
     salvarCamposKit
 } from './kit-gerador.js';
@@ -240,7 +241,8 @@ window.selecionarEquipamentoCatalogo = selecionarEquipamentoCatalogo;
 window.atualizarQuantidadeEquipamento = atualizarQuantidadeEquipamento;
 window.salvarValorKit = salvarValorKit;
 window.mascaraMoeda = mascaraMoeda;
-window.salvarParametrosGeracao = salvarParametrosGeracao;
+window.marcarSelecao = marcarSelecao;
+window.salvarGeracaoKwh = salvarGeracaoKwh;
 window.removerEquipamento = removerEquipamento;
 window.salvarCamposKit = salvarCamposKit;
 

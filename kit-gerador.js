@@ -57,7 +57,7 @@ const timersBusca = {};
 const tokenBusca = {};
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmt = (n, dec = 2) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const fmt = (n, dec = 2, max = dec) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: max });
 const brl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const el = id => document.getElementById(id);
 // "1.234,56" -> 1234.56 | "1234.56" -> 1234.56
@@ -65,6 +65,7 @@ function parseMoeda(v) {
     let t = String(v ?? '').replace(/[^\d.,-]/g, '');
     if (!t) return 0;
     if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+    else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, ''); // 9.800 = nove mil e oitocentos
     return parseFloat(t) || 0;
 }
 
@@ -400,7 +401,7 @@ async function salvarKit(campos) {
             kitAtual = data;
         }
     } catch (err) {
-        alert('Erro ao gravar dados do Kit Gerador: ' + err.message + (/kit_valor|kit_hsp|kit_eficiencia/i.test(err.message) ? '\n\nRode os SQL 007 e 008 no Supabase.' : ''));
+        alert('Erro ao gravar dados do Kit Gerador: ' + err.message + (/kit_valor|kit_geracao/i.test(err.message) ? '\n\nRode os SQL 007 e 008 no Supabase.' : ''));
     }
 }
 
@@ -420,48 +421,66 @@ function valorKit() {
 
 function renderValorKit() {
     const inp = el('kit-valor');
-    if (inp && document.activeElement !== inp) inp.value = valorKit() ? fmt(valorKit()) : '';
+    if (inp && document.activeElement !== inp) setCampoMoeda(inp, valorKit()); // vazio = 0,00
 }
 
-// Máscara de moeda estilo app de banco: só dígitos, os 2 últimos são os
-// centavos. Digitar 980000 vira 9.800,00 — não precisa digitar vírgula.
-export function mascaraMoeda(input) {
-    const d = input.value.replace(/\D/g, '').replace(/^0+/, '');
-    if (!d) { input.value = ''; return; }
-    const p = d.padStart(3, '0');
-    const inteiro = p.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    input.value = `${inteiro},${p.slice(-2)}`;
+// Máscara de moeda: só dígitos, os 2 últimos são os centavos, e os números
+// "andam" conforme você digita: 0,00 -> 0,01 -> 0,12 -> 1,23 -> 12,34 -> 123,45
+// Não depende de onde está o cursor: cada dígito sempre entra pela direita.
+function formatarCentavos(digits) {
+    const p = String(digits || '').padStart(3, '0');
+    return `${p.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${p.slice(-2)}`;
+}
+
+// Define o valor do campo (em reais) mantendo a máscara em sincronia.
+function setCampoMoeda(input, reais) {
+    const cent = Math.round((Number(reais) || 0) * 100);
+    input.dataset.d = cent > 0 ? String(cent) : '';
+    input.value = formatarCentavos(input.dataset.d);
+}
+
+// onbeforeinput: guarda se o campo inteiro estava selecionado (digitar/apagar substitui tudo)
+export function marcarSelecao(input) {
+    input.dataset.all = input.value.length > 0 && input.selectionStart === 0 && input.selectionEnd >= input.value.length ? '1' : '';
+}
+
+export function mascaraMoeda(input, ev) {
+    const tipo = ev?.inputType || '';
+    const inteiro = input.dataset.all === '1';
+    let d = input.dataset.d ?? input.value.replace(/\D/g, '');
+    if (tipo === 'insertText' || tipo === 'insertCompositionText' && /^\d$/.test(ev.data || '')) {
+        if (/^\d$/.test(ev.data || '')) d = (inteiro ? '' : d) + ev.data;
+    } else if (tipo.startsWith('delete')) {
+        d = inteiro ? '' : d.slice(0, -1);
+    } else {
+        d = input.value.replace(/\D/g, ''); // colar, arrastar etc.
+    }
+    input.dataset.all = '';
+    d = d.replace(/^0+/, '').slice(0, 13);
+    input.dataset.d = d;
+    input.value = formatarCentavos(d);
+    input.setSelectionRange(input.value.length, input.value.length);
 }
 
 // ------------------------------------------------------------------
-// Geração estimada ao mês = kWp × irradiação (HSP) × 30 dias × eficiência
-// HSP = horas de sol pleno (kWh/m²·dia). Valores padrão editáveis.
+// Geração estimada ao mês (kWh/mês): valor digitado direto, em kWh.
 // ------------------------------------------------------------------
-const HSP_PADRAO = 5;
-const EFICIENCIA_PADRAO = 80;
-
-function hspKit() { return Number(kitAtual?.kit_hsp) || HSP_PADRAO; }
-function eficienciaKit() { return Number(kitAtual?.kit_eficiencia) || EFICIENCIA_PADRAO; }
-
 function geracaoMensalKwh() {
-    const kwp = somaPotencia('MODULO') / 1000;
-    return kwp * hspKit() * 30 * (eficienciaKit() / 100);
+    return Number(kitAtual?.kit_geracao_kwh) || 0;
 }
 
 function renderGeracao() {
-    const hsp = el('kit-hsp');
-    const efi = el('kit-eficiencia');
-    if (hsp && document.activeElement !== hsp) hsp.value = fmt(hspKit());
-    if (efi && document.activeElement !== efi) efi.value = String(Math.round(eficienciaKit() * 10) / 10).replace('.', ',');
+    const inp = el('kit-geracao');
+    if (inp && document.activeElement !== inp) inp.value = geracaoMensalKwh() ? fmt(geracaoMensalKwh(), 0, 2) : '';
 }
 
-export async function salvarParametrosGeracao() {
+export async function salvarGeracaoKwh(valor) {
     if (!propostaIdAtual) return;
-    const hsp = parseMoeda(el('kit-hsp')?.value);
-    const efi = parseMoeda(el('kit-eficiencia')?.value);
-    if (hsp < 1 || hsp > 9) { alert('A irradiação (HSP) deve ficar entre 1 e 9 kWh/m²·dia.'); renderTudo(); return; }
-    if (efi < 30 || efi > 100) { alert('A eficiência do sistema deve ficar entre 30% e 100%.'); renderTudo(); return; }
-    await salvarKit({ kit_hsp: hsp, kit_eficiencia: efi });
+    const v = parseMoeda(valor);
+    if (v < 0) { alert('A geração não pode ser negativa.'); renderTudo(); return; }
+    const campo = el('kit-geracao');
+    if (campo) campo.value = v ? fmt(v, 0, 2) : '';
+    await salvarKit({ kit_geracao_kwh: v });
     renderTudo();
 }
 
@@ -469,6 +488,8 @@ export async function salvarValorKit(valor) {
     if (!propostaIdAtual) return;
     const v = parseMoeda(valor);
     if (v < 0) { alert('O valor não pode ser negativo.'); renderTudo(); return; }
+    const campo = el('kit-valor');
+    if (campo) setCampoMoeda(campo, v);
     await salvarKit({ kit_valor: v });
     renderTudo();
 }
@@ -484,7 +505,7 @@ function renderPotenciaSistema() {
     const set = (id, v) => { const e = el(id); if (e) e.textContent = v; };
     set('kit-potencia-sistema', `${fmt(kwp)} kWp`);
     const geracao = geracaoMensalKwh();
-    set('kit-geracao-total', `${fmt(geracao, 0)} kWh`);
+    set('kit-geracao-total', `${fmt(geracao, 0, 2)} kWh`);
     set('kit-geracao-ano', geracao > 0 ? `≈ ${fmt(geracao * 12, 0)} kWh por ano` : '');
     set('kit-valor-total', brl(valorKit()));
     set('kit-valor-kwp', kwp > 0 && valorKit() > 0 ? `${brl(valorKit() / kwp)} por kWp` : '');
