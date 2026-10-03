@@ -1269,17 +1269,22 @@
             <div id="proposta-step-kit-gerador" class="proposta-step-panel hidden space-y-5">
                 <div id="kit-gerador-erro" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
 
-                <!-- Resumo (sempre calculado, nunca digitado) -->
+                <!-- Resumo (potência e geração sempre calculadas, nunca digitadas) -->
                 <div class="bg-slate-900 text-white rounded-xl shadow-md p-6 space-y-5">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Potência do Sistema</p>
-                            <p id="kit-potencia-sistema" class="text-5xl font-black mt-1">0,00 kWp</p>
-                            <p class="text-[11px] text-slate-400 mt-1">Calculada automaticamente a partir dos módulos.</p>
+                            <p id="kit-potencia-sistema" class="text-4xl font-black mt-1 tabular-nums">0,00 kWp</p>
+                            <p class="text-[11px] text-slate-400 mt-1">Calculada a partir dos módulos.</p>
+                        </div>
+                        <div class="md:border-l md:border-white/10 md:pl-6">
+                            <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Geração Estimada / mês</p>
+                            <p id="kit-geracao-total" class="text-4xl font-black mt-1 tabular-nums">0 kWh</p>
+                            <p id="kit-geracao-ano" class="text-[11px] text-slate-400 mt-1"></p>
                         </div>
                         <div class="md:border-l md:border-white/10 md:pl-6">
                             <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Valor do Kit</p>
-                            <p id="kit-valor-total" class="text-5xl font-black mt-1">R$ 0,00</p>
+                            <p id="kit-valor-total" class="text-4xl font-black mt-1 tabular-nums">R$ 0,00</p>
                             <p id="kit-valor-kwp" class="text-[11px] text-slate-400 mt-1"></p>
                         </div>
                     </div>
@@ -1334,14 +1339,37 @@
                     <p class="text-xs text-slate-400">A topologia define quais blocos aparecem. Nenhum equipamento já adicionado é apagado ao trocar.</p>
                 </div>
 
-                <!-- Valor do Kit (um valor geral, sem preço por equipamento) -->
+                <!-- Valor do Kit (um valor geral; máscara de moeda) -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
                     <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-tags mr-1 text-amber-500"></i> Valor do Kit</h3>
-                    <div class="max-w-xs">
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor total do kit (R$)</label>
-                        <input type="text" inputmode="decimal" id="kit-valor" placeholder="0,00" onchange="salvarValorKit(this.value)" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-lg font-black font-mono">
+                    <div class="max-w-sm">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor total do kit</label>
+                        <div class="flex items-center rounded-xl border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-amber-400 focus-within:border-amber-400 transition-shadow">
+                            <span class="pl-4 pr-1 text-lg font-semibold text-slate-400 select-none">R$</span>
+                            <input type="text" inputmode="numeric" id="kit-valor" placeholder="0,00" autocomplete="off"
+                                oninput="mascaraMoeda(this)" onfocus="this.select()" onchange="salvarValorKit(this.value)"
+                                class="w-full min-w-0 py-3 pl-1 pr-4 text-right text-2xl font-bold text-slate-900 tracking-tight tabular-nums bg-transparent outline-none placeholder:text-slate-300">
+                        </div>
                     </div>
-                    <p class="text-xs text-slate-400">Valor geral do kit completo (módulos, inversores e demais equipamentos).</p>
+                    <p class="text-xs text-slate-400">Digite só os números, sem vírgula: <b>980000</b> vira <b>R$ 9.800,00</b>.</p>
+                </div>
+
+                <!-- Geração estimada ao mês -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-bolt mr-1 text-amber-500"></i> Geração Estimada</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Irradiação — HSP (kWh/m²·dia)</label>
+                            <input type="text" inputmode="decimal" id="kit-hsp" placeholder="5,00" onchange="salvarParametrosGeracao()" onfocus="this.select()"
+                                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-base font-semibold tabular-nums">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Eficiência do sistema (%)</label>
+                            <input type="text" inputmode="decimal" id="kit-eficiencia" placeholder="80" onchange="salvarParametrosGeracao()" onfocus="this.select()"
+                                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-base font-semibold tabular-nums">
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400">Geração mensal = potência (kWp) × HSP × 30 dias × eficiência. Ajuste a HSP conforme a cidade do cliente.</p>
                 </div>
 
                 <div id="kit-bloco-MODULO" class="bg-white rounded-xl border border-slate-200 shadow-xs">

@@ -90,6 +90,8 @@ import {
     selecionarEquipamentoCatalogo,
     atualizarQuantidadeEquipamento,
     salvarValorKit,
+    mascaraMoeda,
+    salvarParametrosGeracao,
     removerEquipamento,
     salvarCamposKit
 } from './kit-gerador.js';
@@ -237,6 +239,8 @@ window.buscarEquipamentoCatalogo = buscarEquipamentoCatalogo;
 window.selecionarEquipamentoCatalogo = selecionarEquipamentoCatalogo;
 window.atualizarQuantidadeEquipamento = atualizarQuantidadeEquipamento;
 window.salvarValorKit = salvarValorKit;
+window.mascaraMoeda = mascaraMoeda;
+window.salvarParametrosGeracao = salvarParametrosGeracao;
 window.removerEquipamento = removerEquipamento;
 window.salvarCamposKit = salvarCamposKit;
 

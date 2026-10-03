@@ -110,6 +110,7 @@ function renderTudo() {
     renderTodasListas();
     renderKitForm();
     renderValorKit();
+    renderGeracao();
     renderPotenciaSistema();
 }
 
@@ -399,7 +400,7 @@ async function salvarKit(campos) {
             kitAtual = data;
         }
     } catch (err) {
-        alert('Erro ao gravar dados do Kit Gerador: ' + err.message + (/kit_valor/i.test(err.message) ? '\n\nRode o SQL 007 no Supabase.' : ''));
+        alert('Erro ao gravar dados do Kit Gerador: ' + err.message + (/kit_valor|kit_hsp|kit_eficiencia/i.test(err.message) ? '\n\nRode os SQL 007 e 008 no Supabase.' : ''));
     }
 }
 
@@ -422,6 +423,48 @@ function renderValorKit() {
     if (inp && document.activeElement !== inp) inp.value = valorKit() ? fmt(valorKit()) : '';
 }
 
+// Máscara de moeda estilo app de banco: só dígitos, os 2 últimos são os
+// centavos. Digitar 980000 vira 9.800,00 — não precisa digitar vírgula.
+export function mascaraMoeda(input) {
+    const d = input.value.replace(/\D/g, '').replace(/^0+/, '');
+    if (!d) { input.value = ''; return; }
+    const p = d.padStart(3, '0');
+    const inteiro = p.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    input.value = `${inteiro},${p.slice(-2)}`;
+}
+
+// ------------------------------------------------------------------
+// Geração estimada ao mês = kWp × irradiação (HSP) × 30 dias × eficiência
+// HSP = horas de sol pleno (kWh/m²·dia). Valores padrão editáveis.
+// ------------------------------------------------------------------
+const HSP_PADRAO = 5;
+const EFICIENCIA_PADRAO = 80;
+
+function hspKit() { return Number(kitAtual?.kit_hsp) || HSP_PADRAO; }
+function eficienciaKit() { return Number(kitAtual?.kit_eficiencia) || EFICIENCIA_PADRAO; }
+
+function geracaoMensalKwh() {
+    const kwp = somaPotencia('MODULO') / 1000;
+    return kwp * hspKit() * 30 * (eficienciaKit() / 100);
+}
+
+function renderGeracao() {
+    const hsp = el('kit-hsp');
+    const efi = el('kit-eficiencia');
+    if (hsp && document.activeElement !== hsp) hsp.value = fmt(hspKit());
+    if (efi && document.activeElement !== efi) efi.value = String(Math.round(eficienciaKit() * 10) / 10).replace('.', ',');
+}
+
+export async function salvarParametrosGeracao() {
+    if (!propostaIdAtual) return;
+    const hsp = parseMoeda(el('kit-hsp')?.value);
+    const efi = parseMoeda(el('kit-eficiencia')?.value);
+    if (hsp < 1 || hsp > 9) { alert('A irradiação (HSP) deve ficar entre 1 e 9 kWh/m²·dia.'); renderTudo(); return; }
+    if (efi < 30 || efi > 100) { alert('A eficiência do sistema deve ficar entre 30% e 100%.'); renderTudo(); return; }
+    await salvarKit({ kit_hsp: hsp, kit_eficiencia: efi });
+    renderTudo();
+}
+
 export async function salvarValorKit(valor) {
     if (!propostaIdAtual) return;
     const v = parseMoeda(valor);
@@ -440,6 +483,9 @@ function renderPotenciaSistema() {
 
     const set = (id, v) => { const e = el(id); if (e) e.textContent = v; };
     set('kit-potencia-sistema', `${fmt(kwp)} kWp`);
+    const geracao = geracaoMensalKwh();
+    set('kit-geracao-total', `${fmt(geracao, 0)} kWh`);
+    set('kit-geracao-ano', geracao > 0 ? `≈ ${fmt(geracao * 12, 0)} kWh por ano` : '');
     set('kit-valor-total', brl(valorKit()));
     set('kit-valor-kwp', kwp > 0 && valorKit() > 0 ? `${brl(valorKit() / kwp)} por kWp` : '');
     set('kit-resumo-modulos', String(somaQuantidade('MODULO')));
@@ -456,4 +502,9 @@ export function getPotenciaSistemaKwp() {
 // Valor total do kit (soma dos equipamentos ou valor fechado, conforme o modo). Permite que a futura etapa de Formação de Preço leia o valor.
 export function getValorKit() {
     return valorKit();
+}
+
+// Geração estimada mensal (kWh) — para a futura etapa de Formação de Preço/Proposta.
+export function getGeracaoMensalKwh() {
+    return geracaoMensalKwh();
 }
