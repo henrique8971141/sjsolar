@@ -15,7 +15,7 @@
 //   /projeto/:id/orcamentos      -> Orçamentos do projeto
 //   /projeto/:id/documentos      -> Documentos do projeto
 //   /projeto/:id/informacoes     -> Informações do cliente do projeto
-//   /projeto/:id/precificacao    -> Configurações de Precificação do projeto
+//   /precificacao                -> Configurações de Precificação (únicas, do sistema)
 //
 // Qualquer outra URL cai em "Página não encontrada". Um :id que não
 // corresponda a nenhum projeto carregado cai em "Projeto não encontrado".
@@ -39,7 +39,8 @@ const ROTAS_SIMPLES = {
     clientes: { nome: 'clientes', tabId: 'clientes-tab' },
     orcamentos: { nome: 'orcamentos', tabId: 'orcamentos-tab' },
     catalogo: { nome: 'catalogo', tabId: 'produtos-tab' },
-    'catalogo-fotovoltaico': { nome: 'catalogo-fotovoltaico', tabId: 'fotovoltaico-tab' }
+    'catalogo-fotovoltaico': { nome: 'catalogo-fotovoltaico', tabId: 'fotovoltaico-tab' },
+    precificacao: { nome: 'precificacao' }
 };
 
 // Nome da sub-aba na URL -> nome interno usado pela área do projeto.
@@ -61,9 +62,6 @@ function parseRota(pathname) {
         const projetoId = decodeURIComponent(partes[1]);
         if (partes.length === 2) {
             return { nome: 'projeto', projetoId, subTabUrl: 'orcamentos' };
-        }
-        if (partes.length === 3 && partes[2] === 'precificacao') {
-            return { nome: 'precificacao', projetoId };
         }
         if (partes.length === 3 && SUBTAB_URL_PARA_INTERNO[partes[2]]) {
             return { nome: 'projeto', projetoId, subTabUrl: partes[2] };
@@ -114,12 +112,7 @@ export function handleRota() {
     }
 
     if (rota.nome === 'precificacao') {
-        const existe = state.localProjetos.some(p => String(p.id) === String(rota.projetoId));
-        if (!existe) {
-            renderProjetoNaoEncontrado(rota.projetoId);
-            return;
-        }
-        renderPrecificacaoNaRota(rota.projetoId);
+        renderPrecificacaoNaRota();
         return;
     }
 

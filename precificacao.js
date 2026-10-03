@@ -121,8 +121,8 @@ function normalizar(row) {
 }
 
 // Configuração de precificação de um projeto (salva ou padrão).
-export async function obterPrecificacaoProjeto(projetoId) {
-    const { data, error } = await state.supabaseClient.from(TABELA).select('*').eq('projeto_id', String(projetoId)).maybeSingle();
+export async function obterPrecificacaoProjeto() {
+    const { data, error } = await state.supabaseClient.from(TABELA).select('*').eq('projeto_id', CHAVE_GLOBAL).maybeSingle();
     if (error) throw error;
     return normalizar(data);
 }
@@ -130,7 +130,8 @@ export async function obterPrecificacaoProjeto(projetoId) {
 // ------------------------------------------------------------------
 // Estado da tela
 // ------------------------------------------------------------------
-let projetoId = null;   // projeto aberto
+const CHAVE_GLOBAL = 'global'; // configuração única do sistema (uma linha só)
+let carregado = false;
 let cfg = null;         // cópia em edição
 let snapshot = '';      // JSON da última versão salva (para saber se há alterações)
 let tabelaOk = true;    // false quando a tabela ainda não existe no Supabase
@@ -139,8 +140,8 @@ let tokenCarga = 0;
 const sujo = () => !!cfg && JSON.stringify(cfg) !== snapshot;
 
 // Chamado pelo botão ⚙ do card do projeto
-export function abrirPrecificacaoProjeto(id) {
-    navegarPara(`/projeto/${id}/precificacao`);
+export function abrirPrecificacaoProjeto() {
+    navegarPara('/precificacao');
 }
 
 export function voltarDaPrecificacao() {
@@ -149,22 +150,16 @@ export function voltarDaPrecificacao() {
 }
 
 // Chamado pelo Router (router.js) quando a URL é /projeto/:id/precificacao
-export async function renderPrecificacaoNaRota(id) {
-    const projeto = state.localProjetos.find(p => String(p.id) === String(id));
-    if (!projeto) return;
-
+export async function renderPrecificacaoNaRota() {
     switchTab('precificacao-tab');
     // mantém "Projetos" destacado na sidebar
     const nav = document.getElementById('nav-projetos-tab');
     if (nav) nav.className = 'sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950';
 
-    const sub = el('prec-subtitulo');
-    if (sub) sub.textContent = `${projeto.nome}${projeto.cliente_nome ? ' · ' + projeto.cliente_nome : ''}`;
-
     ligarEventos();
 
     // O Router chama esta função de novo a cada sincronização: não perde o que está sendo editado.
-    if (String(projetoId) === String(id) && cfg) {
+    if (carregado && cfg) {
         renderForm();
         return;
     }
@@ -173,7 +168,7 @@ export async function renderPrecificacaoNaRota(id) {
         return;
     }
 
-    projetoId = id;
+    carregado = true;
     cfg = null;
     const token = ++tokenCarga;
     el('prec-erro').classList.add('hidden');
@@ -182,7 +177,7 @@ export async function renderPrecificacaoNaRota(id) {
     let dados = null;
     tabelaOk = true;
     try {
-        const { data, error } = await state.supabaseClient.from(TABELA).select('*').eq('projeto_id', String(id)).maybeSingle();
+        const { data, error } = await state.supabaseClient.from(TABELA).select('*').eq('projeto_id', CHAVE_GLOBAL).maybeSingle();
         if (error) throw error;
         dados = data;
     } catch (err) {
@@ -539,14 +534,14 @@ function validar() {
 }
 
 export async function salvarPrecificacao() {
-    if (!cfg || !projetoId || !tabelaOk) return;
+    if (!cfg || !tabelaOk) return;
     const erros = validar();
     if (erros.length) {
         alert('Corrija antes de salvar:\n\n• ' + erros.join('\n• '));
         return;
     }
     const linha = {
-        projeto_id: String(projetoId),
+        projeto_id: CHAVE_GLOBAL,
         ...clone(cfg),
         updated_at: new Date().toISOString()
     };
