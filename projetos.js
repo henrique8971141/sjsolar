@@ -197,7 +197,13 @@ export function renderProjetosPage() {
         card.innerHTML = `
             <div class="flex items-start justify-between gap-2">
                 <h4 class="font-bold text-slate-900 leading-snug">${p.nome}</h4>
-                <span class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">${p.status || 'Rascunho'}</span>
+                <div class="shrink-0 flex items-center gap-1.5">
+                    <button type="button" title="Configurações de precificação" onclick="event.stopPropagation(); abrirPrecificacaoProjeto('${p.id}')"
+                        class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                        <i class="fa-solid fa-gear text-xs"></i>
+                    </button>
+                    <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">${p.status || 'Rascunho'}</span>
+                </div>
             </div>
             <p class="text-sm text-slate-500 mt-1">${p.cliente_nome || 'Sem cliente'}</p>
             ${detalhes ? `<div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">${detalhes}</div>` : ''}
