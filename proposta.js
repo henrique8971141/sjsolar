@@ -1,345 +1,163 @@
-// projetos.js
-// Projetos (vinculados a um cliente, e por sua vez a orçamentos — exibidos
-// como grupo expansível na listagem de orçamentos). CRUD e mini-formulário
-// inline usado dentro do editor de orçamento.
+// proposta.js
+// TELA PRÓPRIA DA PROPOSTA — completamente separada do editor de Orçamento
+// (orcamentos.js / orcamento-editor-tab). Não reutiliza nada da lógica de
+// Orçamento Avulso: tem seu próprio estado de edição, suas próprias
+// funções de abrir/salvar/fechar e sua própria seção no HTML
+// (proposta-editor-tab).
+//
+// A Proposta só existe vinculada a um Projeto (é o fluxo
+// Projeto -> Propostas -> "Clique aqui para criar"). Por enquanto grava na
+// mesma tabela Supabase "orcamentos" (para continuar aparecendo na
+// listagem geral, no dashboard e usando a exportação PDF/DOCX já
+// existentes), mas a TELA de edição é inteiramente própria.
+//
+// Etapas implementadas até agora: Cliente e Serviço, Localização,
+// Unidades Consumidoras (2.3.3) e Kit Gerador / Equipamentos (2.3.4).
+// As etapas seguintes (Formação de Preço em diante) ainda não existem —
+// não implementar aqui até serem pedidas.
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
-import { initClienteAutocomplete } from './cliente-autocomplete.js';
 import { switchTab } from './ui.js';
-import { switchProjetoSubTab, renderProjetoInternoHeader } from './projeto-interno.js';
-import { navegarPara } from './router.js';
-import { buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios, UFS } from './localizacao.js';
+import { determinarDistribuidora, DISTRIBUIDORAS_CONHECIDAS, UFS, buscarEnderecoPorCep, getMunicipiosPorUf, buscarMunicipios } from './localizacao.js';
+import { irParaSubTabProjeto } from './router.js';
+import { carregarUnidadesConsumidoras } from './unidades-consumidoras.js';
+import { carregarKitGerador } from './kit-gerador.js';
 
-// Filtra o select de projeto do orçamento pelos projetos do cliente selecionado
-export function atualizarProjetosDoCliente(clienteId) {
-    const select = document.getElementById('form-projeto-id');
-    if (!select) return;
-    const atual = select.value;
-    const projetosDoCliente = state.localProjetos.filter(p => String(p.cliente_id) === String(clienteId));
-    select.innerHTML = '<option value="">Sem projeto</option>' +
-        projetosDoCliente.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-    select.value = projetosDoCliente.some(p => String(p.id) === String(atual)) ? atual : '';
-}
+const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador'];
 
-export function populateProjetoDropdowns() {
-    const clienteAtualId = document.getElementById('form-cliente-id')?.value || '';
-    atualizarProjetosDoCliente(clienteAtualId);
-}
-
-// Abre o mini-formulário de criação rápida de projeto, vinculado ao cliente já selecionado
-let clienteAutocompleteProjetoPage = null;
-
-export function openInlineProjetoForm() {
-    const clienteId = document.getElementById('form-cliente-id').value;
-    if (!clienteId) {
-        alert("Selecione o cliente antes de criar um projeto.");
-        return;
-    }
-    document.getElementById('inline-projeto-form').classList.remove('hidden');
-    document.getElementById('inline-proj-nome').focus();
-}
-
-export function closeInlineProjetoForm() {
-    document.getElementById('inline-projeto-form').classList.add('hidden');
-    document.getElementById('inline-proj-nome').value = '';
-    document.getElementById('inline-proj-descricao').value = '';
-}
-
-export async function saveInlineProjeto() {
-    const cliente_id = document.getElementById('form-cliente-id').value;
-    const nome = document.getElementById('inline-proj-nome').value.trim();
-    const descricao = document.getElementById('inline-proj-descricao').value.trim();
-
-    if (!cliente_id || !nome) {
-        alert("Cliente e nome do projeto são obrigatórios.");
-        return;
-    }
-
-    // Mini-formulário não tem campos de localização visíveis: mesmo assim,
-    // já grava o endereço atual do Cliente como valor inicial da instalação
-    // (a mesma regra do modal completo), editável depois em "Editar Projeto".
-    const cliente = state.localClientes.find(c => String(c.id) === String(cliente_id));
-    const localizacaoInicial = cliente ? {
-        instalacao_cep: cliente.cep || null,
-        instalacao_endereco_completo: cliente.endereco_completo || null,
-        instalacao_numero: cliente.numero || null,
-        instalacao_complemento: cliente.complemento || null,
-        instalacao_bairro: cliente.bairro || null,
-        instalacao_cidade: cliente.cidade || null,
-        instalacao_estado: cliente.estado || null
-    } : {};
-
-    try {
-        const { data, error } = await state.supabaseClient
-            .from('projetos')
-            .insert({ cliente_id, nome, descricao, ...localizacaoInicial })
-            .select()
-            .single();
-        if (error) throw error;
-
-        await syncFromSupabase();
-        atualizarProjetosDoCliente(cliente_id);
-        document.getElementById('form-projeto-id').value = data.id;
-        // Dispara o listener de mudança (ligado em orcamentos.js) para
-        // recalcular a Localização, já que aqui não é possível importar
-        // atualizarLocalizacaoConformeTipo sem criar import circular.
-        document.getElementById('form-projeto-id').dispatchEvent(new Event('change'));
-        closeInlineProjetoForm();
-    } catch (err) {
-        alert("Erro ao criar projeto: " + err.message);
-    }
-}
-
-// Um projeto com orçamentos vinculados não pode ser excluído nesta etapa
-// (evita apagar/desvincular orçamentos sem controle). state.localOrcamentos
-// já traz projeto_id mapeado (ver supabase.js), então a checagem é só local.
-function possuiOrcamentosVinculados(projetoId) {
-    return state.localOrcamentos.some(o => String(o.projeto_id) === String(projetoId));
-}
-
-export async function deleteProjeto(id) {
-    if (possuiOrcamentosVinculados(id)) {
-        alert("NÃO É POSSÍVEL EXCLUIR ESTE PROJETO.\n\nExistem orçamentos vinculados a este projeto.");
-        return;
-    }
-    if (!confirm("Confirmar exclusão deste projeto?")) return;
-    try {
-        const { error } = await state.supabaseClient.from('projetos').delete().eq('id', id);
-        if (error) throw error;
-        await syncFromSupabase();
-    } catch (err) {
-        alert(err.message);
-    }
-}
-
-// ============================================================
-// ABA "PROJETOS" — CRUD completo (listagem, modal criar/editar, exclusão)
-// ============================================================
-
-function formatarDataCriacao(isoString) {
-    if (!isoString) return '';
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('pt-BR');
-}
-
-// Formata uma data "YYYY-MM-DD" (coluna date do Postgres) para pt-BR sem
-// passar por new Date(), que aplicaria fuso horário e poderia voltar um dia.
-function formatarDataProjeto(dataIso) {
-    if (!dataIso) return '';
-    const partes = String(dataIso).split('-');
-    if (partes.length !== 3) return '';
-    const [ano, mes, dia] = partes;
-    return `${dia}/${mes}/${ano}`;
-}
-
-
-
-// Filtra os projetos pelo texto digitado na busca (nome do projeto, nome do
-// cliente, CPF/CNPJ do cliente ou status). Usa somente o cache local em
-// state.localProjetos — sem nova consulta ao Supabase a cada tecla.
-function filtrarProjetos(query) {
-    const termo = String(query || '').trim().toLowerCase();
-    if (!termo) return state.localProjetos;
-    return state.localProjetos.filter(p =>
-        (p.nome && p.nome.toLowerCase().includes(termo)) ||
-        (p.cliente_nome && p.cliente_nome.toLowerCase().includes(termo)) ||
-        (p.cliente_cpf_cnpj && p.cliente_cpf_cnpj.toLowerCase().includes(termo)) ||
-        (p.status && p.status.toLowerCase().includes(termo))
-    );
-}
-
-// Etapa 2: listagem de Projetos em cards. Cada card é inteiramente clicável
-// e abre a área interna do projeto (Orçamentos / Documentos / Informações do
-// Cliente). Sem botões de "Entrar", "Editar" ou "Excluir" no card — essas
-// ações administrativas ficam dentro da própria área interna do projeto.
-export function renderProjetosPage() {
-    const grid = document.getElementById('projetos-cards-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    if (state.localProjetos.length === 0) {
-        grid.innerHTML = `
-            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center">
-                <p class="font-bold text-slate-500 uppercase tracking-wider text-sm">Nenhum projeto criado</p>
-                <p onclick="openProjetoPageModal()" class="mt-2 inline-block text-amber-600 hover:text-amber-700 font-bold uppercase tracking-wider text-sm cursor-pointer underline underline-offset-2">
-                    Clique aqui para criar
-                </p>
-            </div>
-        `;
-        return;
-    }
-
-    const buscaField = document.getElementById('proj-busca');
-    const projetosFiltrados = filtrarProjetos(buscaField ? buscaField.value : '');
-
-    if (projetosFiltrados.length === 0) {
-        grid.innerHTML = `
-            <div class="col-span-full bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
-                Nenhum projeto encontrado para essa busca.
-            </div>
-        `;
-        return;
-    }
-
-    projetosFiltrados.forEach(p => {
-        const card = document.createElement('div');
-        card.dataset.projetoId = p.id;
-        card.className = "bg-white rounded-xl border border-slate-200 shadow-xs p-5 cursor-pointer hover:border-amber-400 hover:shadow-md transition-all";
-        card.onclick = () => abrirProjetoInterno(p.id);
-
-        const detalhes = [formatarDataProjeto(p.data_projeto)]
-            .filter(Boolean)
-            .map(txt => `<span>${txt}</span>`)
-            .join('<span class="text-slate-300">•</span>');
-
-        card.innerHTML = `
-            <div class="flex items-start justify-between gap-2">
-                <h4 class="font-bold text-slate-900 leading-snug">${p.nome}</h4>
-                <div class="shrink-0 flex items-center gap-1.5">
-                    <button type="button" title="Configurações de precificação" onclick="event.stopPropagation(); abrirPrecificacaoProjeto('${p.id}')"
-                        class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                        <i class="fa-solid fa-gear text-xs"></i>
-                    </button>
-                    <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">${p.status || 'Rascunho'}</span>
-                </div>
-            </div>
-            <p class="text-sm text-slate-500 mt-1">${p.cliente_nome || 'Sem cliente'}</p>
-            ${detalhes ? `<div class="flex items-center gap-1.5 mt-2 text-xs text-slate-500">${detalhes}</div>` : ''}
-            <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
-                <span>${p.responsavel ? 'Resp.: ' + p.responsavel : ''}</span>
-                <span>${formatarDataCriacao(p.created_at)}</span>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
-}
-
-// ============================================================
-// ÁREA INTERNA DO PROJETO (Etapa 2)
-// ============================================================
-
-// Chamada pelo card de projeto (onclick já definido em renderProjetosPage) e
-// por qualquer outro ponto que precise "entrar" num projeto. Apenas muda a
-// URL — quem de fato renderiza a tela é renderProjetoNaRota(), chamada pelo
-// Router a partir da URL.
-export function abrirProjetoInterno(id) {
-    navegarPara(`/projeto/${id}`);
-}
-
-// Render "puro" da área interna do projeto: recebe o ID e a sub-aba já
-// resolvidos pelo Router (router.js) e apenas atualiza o estado/DOM — não
-// mexe na URL. Quem decide a URL é sempre o Router.
-export function renderProjetoNaRota(id, subTabInterno) {
-    const projeto = state.localProjetos.find(p => String(p.id) === String(id));
-    if (!projeto) return;
-
-    state.projetoAtualId = id;
-
-    switchTab('projeto-interno-tab');
-    // Mantém "Projetos" destacado na sidebar, já que continuamos dentro dessa área
-    const navProjetos = document.getElementById('nav-projetos-tab');
-    if (navProjetos) navProjetos.className = "sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950";
-
-    renderProjetoInternoHeader();
-    switchProjetoSubTab(subTabInterno || 'orcamentos');
-}
-
-// Volta para a listagem de projetos, sem perder o cadastro (o projeto
-// simplesmente deixa de ser o "projeto atual"). Apenas muda a URL — a
-// limpeza de state.projetoAtualId e a troca de tela acontecem no Router.
-export function voltarParaProjetos() {
-    navegarPara('/projetos');
-}
-
-// Os 5 status que a interface nova utiliza. O DEFAULT do banco continua
-// 'Rascunho' e projetos antigos podem ter outros valores (ex.: "Em
-// orçamento") — esses valores não são convertidos automaticamente (ver
-// regra em editProjetoPage/saveProjetoPage).
-const STATUS_PROJETO = ['Orçamento', 'Em Andamento', 'Aprovado', 'Concluído', 'Cancelado'];
+let passoAtualProposta = 'cliente-servico';
+let listenersLocalizacaoLigados = false;
 
 // ------------------------------------------------------------------
-// Localização da Instalação (independente do endereço do Cliente após
-// a criação do Projeto — ver regra no topo do arquivo/commit).
+// Navegação entre as etapas da Proposta
 // ------------------------------------------------------------------
-let instalacaoUfSelectPronto = false;
+export async function switchPropostaStep(step) {
+    passoAtualProposta = step;
+    const idxAtual = STEPS.indexOf(step);
+    STEPS.forEach((s, i) => {
+        const painel = document.getElementById(`proposta-step-${s}`);
+        const link = document.querySelector(`[data-proposta-step="${s}"]`);
+        if (painel) painel.classList.toggle('hidden', s !== step);
+        if (link) {
+            // active = etapa atual | done = etapas anteriores (✓) | todo = próximas
+            const estado = i === idxAtual ? 'active' : (i < idxAtual ? 'done' : 'todo');
+            link.dataset.state = estado;
+            link.querySelector('.pstep-circle').innerHTML = estado === 'done' ? '<i class="fa-solid fa-check"></i>' : String(i + 1);
+            // a linha que liga esta etapa à próxima fica "preenchida" quando já passou
+            const linha = link.nextElementSibling;
+            if (linha && linha.classList.contains('pstep-line')) linha.dataset.done = i < idxAtual ? '1' : '0';
+        }
+    });
+    atualizarBotaoRodapeProposta();
 
-function limparLocalizacaoInstalacao() {
-    document.getElementById('proj-page-inst-cep').value = '';
-    document.getElementById('proj-page-inst-endereco').value = '';
-    document.getElementById('proj-page-inst-numero').value = '';
-    document.getElementById('proj-page-inst-complemento').value = '';
-    document.getElementById('proj-page-inst-bairro').value = '';
-    document.getElementById('proj-page-inst-cidade').value = '';
-    document.getElementById('proj-page-inst-estado').value = '';
-}
-
-function preencherLocalizacaoInstalacao(p) {
-    document.getElementById('proj-page-inst-cep').value = p.instalacao_cep || '';
-    document.getElementById('proj-page-inst-endereco').value = p.instalacao_endereco_completo || '';
-    document.getElementById('proj-page-inst-numero').value = p.instalacao_numero || '';
-    document.getElementById('proj-page-inst-complemento').value = p.instalacao_complemento || '';
-    document.getElementById('proj-page-inst-bairro').value = p.instalacao_bairro || '';
-    document.getElementById('proj-page-inst-cidade').value = p.instalacao_cidade || '';
-    document.getElementById('proj-page-inst-estado').value = p.instalacao_estado || '';
-}
-
-// Copia o endereço atual do Cliente para os campos de instalação. Usado
-// somente na criação de um Projeto novo — é só o valor inicial, os campos
-// seguem editáveis e independentes depois disso.
-function copiarEnderecoClienteParaInstalacao(clienteId) {
-    const cliente = state.localClientes.find(c => String(c.id) === String(clienteId));
-    if (!cliente) {
-        limparLocalizacaoInstalacao();
-        return;
+    // Unidades Consumidoras (2.3.3) pertencem à Proposta já gravada (tabela
+    // "orcamentos"), então, ao entrar nesta etapa, garantimos primeiro que
+    // a Proposta já tem um id (gravando/atualizando Cliente e Serviço +
+    // Localização) antes de carregar/permitir cadastrar UCs.
+    if (step === 'unidades-consumidoras') {
+        const ok = await salvarDadosBaseProposta();
+        if (!ok) {
+            switchPropostaStep('cliente-servico');
+            return;
+        }
+        await carregarUnidadesConsumidoras(document.getElementById('proposta-id').value);
     }
-    document.getElementById('proj-page-inst-cep').value = cliente.cep || '';
-    document.getElementById('proj-page-inst-endereco').value = cliente.endereco_completo || '';
-    document.getElementById('proj-page-inst-numero').value = cliente.numero || '';
-    document.getElementById('proj-page-inst-complemento').value = cliente.complemento || '';
-    document.getElementById('proj-page-inst-bairro').value = cliente.bairro || '';
-    document.getElementById('proj-page-inst-cidade').value = cliente.cidade || '';
-    document.getElementById('proj-page-inst-estado').value = cliente.estado || '';
+
+    // Kit Gerador / Equipamentos (2.3.4) também pertence à Proposta já
+    // gravada (tabela "orcamentos"), pelo mesmo motivo das Unidades
+    // Consumidoras: precisa de um proposta_id antes de gravar equipamentos.
+    if (step === 'kit-gerador') {
+        const ok = await salvarDadosBaseProposta();
+        if (!ok) {
+            switchPropostaStep('cliente-servico');
+            return;
+        }
+        await carregarKitGerador(document.getElementById('proposta-id').value);
+    }
 }
 
-// Liga CEP/IBGE nos campos de instalação do modal (roda uma vez).
-function ensureInstalacaoUfSelect() {
-    if (instalacaoUfSelectPronto) return;
-    const select = document.getElementById('proj-page-inst-estado');
-    UFS.forEach(uf => {
-        const opt = document.createElement('option');
-        opt.value = uf;
-        opt.textContent = uf;
-        select.appendChild(opt);
+// O rodapé mostra "Próximo" em toda etapa que não seja a última já
+// implementada, e "Salvar Proposta" só na última (por enquanto,
+// Localização). Quando novas etapas forem criadas,
+// basta adicioná-las a STEPS — este código não precisa mudar.
+function atualizarBotaoRodapeProposta() {
+    const isUltimaEtapa = passoAtualProposta === STEPS[STEPS.length - 1];
+    document.getElementById('btn-proposta-avancar').classList.toggle('hidden', isUltimaEtapa);
+    document.getElementById('btn-salvar-proposta').classList.toggle('hidden', !isUltimaEtapa);
+}
+
+// Chamado pelo botão "Próximo": avança para a etapa seguinte da lista.
+export async function avancarPropostaStep() {
+    const idx = STEPS.indexOf(passoAtualProposta);
+    if (idx === -1 || idx === STEPS.length - 1) return;
+    await switchPropostaStep(STEPS[idx + 1]);
+}
+
+function popularSelectDistribuidoraProposta() {
+    const select = document.getElementById('proposta-loc-distribuidora');
+    if (!select || select.dataset.populado) return;
+    select.innerHTML = '<option value="">Selecione</option>' +
+        DISTRIBUIDORAS_CONHECIDAS.map(d => `<option value="${d}">${d}</option>`).join('');
+    select.dataset.populado = '1';
+}
+
+function popularSelectUfProposta() {
+    const select = document.getElementById('proposta-loc-uf');
+    if (!select || select.dataset.populado) return;
+    select.innerHTML = '<option value="">Selecione</option>' +
+        UFS.map(uf => `<option value="${uf}">${uf}</option>`).join('');
+    select.dataset.populado = '1';
+}
+
+// Mostra/esconde o campo de descrição livre quando "Outro" é selecionado
+// no Tipo de Telhado. Exposta em window porque é chamada via onchange
+// inline no HTML (mesmo padrão usado no restante do arquivo).
+function toggleTipoTelhadoOutroProposta() {
+    const select = document.getElementById('proposta-loc-tipo-telhado');
+    const wrap = document.getElementById('proposta-loc-tipo-telhado-outro-wrap');
+    if (!select || !wrap) return;
+    wrap.classList.toggle('hidden', select.value !== 'Outro');
+}
+window.__toggleTipoTelhadoOutroProposta = toggleTipoTelhadoOutroProposta;
+
+// Liga (uma única vez) os listeners de CEP e autocomplete de cidade dos
+// campos de localização da Proposta. Igual ao padrão já usado em
+// clientes.js, mas gravando só nos campos da Proposta — nunca no Cliente.
+function ligarListenersLocalizacaoProposta() {
+    if (listenersLocalizacaoLigados) return;
+    listenersLocalizacaoLigados = true;
+
+    const ufSelect = document.getElementById('proposta-loc-uf');
+    const cepField = document.getElementById('proposta-loc-cep');
+    const cidadeField = document.getElementById('proposta-loc-cidade');
+    const cidadeDropdown = document.getElementById('proposta-loc-cidade-dropdown');
+
+    ufSelect.addEventListener('change', () => {
+        if (ufSelect.value) getMunicipiosPorUf(ufSelect.value);
+        atualizarDistribuidoraAutomaticaProposta();
     });
 
-    select.addEventListener('change', () => {
-        if (select.value) getMunicipiosPorUf(select.value);
-    });
-
-    const cepField = document.getElementById('proj-page-inst-cep');
     cepField.addEventListener('blur', async () => {
         const endereco = await buscarEnderecoPorCep(cepField.value);
         if (!endereco) return;
-        if (endereco.logradouro) document.getElementById('proj-page-inst-endereco').value = endereco.logradouro;
-        if (endereco.bairro) document.getElementById('proj-page-inst-bairro').value = endereco.bairro;
+        if (endereco.logradouro) document.getElementById('proposta-loc-endereco').value = endereco.logradouro;
+        if (endereco.bairro) document.getElementById('proposta-loc-bairro').value = endereco.bairro;
         if (endereco.uf) {
-            select.value = endereco.uf;
+            ufSelect.value = endereco.uf;
             await getMunicipiosPorUf(endereco.uf);
         }
-        if (endereco.cidade) document.getElementById('proj-page-inst-cidade').value = endereco.cidade;
+        if (endereco.cidade) cidadeField.value = endereco.cidade;
+        atualizarDistribuidoraAutomaticaProposta();
     });
 
-    const cidadeField = document.getElementById('proj-page-inst-cidade');
-    const cidadeDropdown = document.getElementById('proj-page-inst-cidade-dropdown');
     const renderCidades = async () => {
-        if (!select.value) {
+        if (!ufSelect.value) {
             cidadeDropdown.innerHTML = '<div class="text-xs text-slate-400 px-3 py-2">Selecione a UF primeiro.</div>';
             cidadeDropdown.classList.remove('hidden');
             return;
         }
-        const resultados = await buscarMunicipios(select.value, cidadeField.value);
+        const resultados = await buscarMunicipios(ufSelect.value, cidadeField.value);
         cidadeDropdown.innerHTML = resultados.length === 0
             ? '<div class="text-xs text-slate-400 px-3 py-2">Nenhuma cidade encontrada.</div>'
             : resultados.map(nome => `<button type="button" data-cidade="${nome}" class="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors">${nome}</button>`).join('');
@@ -347,164 +165,245 @@ function ensureInstalacaoUfSelect() {
             btn.addEventListener('click', () => {
                 cidadeField.value = btn.dataset.cidade;
                 cidadeDropdown.classList.add('hidden');
+                atualizarDistribuidoraAutomaticaProposta();
             });
         });
         cidadeDropdown.classList.remove('hidden');
     };
     cidadeField.addEventListener('focus', renderCidades);
     cidadeField.addEventListener('input', renderCidades);
+    cidadeField.addEventListener('blur', () => atualizarDistribuidoraAutomaticaProposta());
     document.addEventListener('click', (e) => {
         if (!cidadeField.contains(e.target) && !cidadeDropdown.contains(e.target)) {
             cidadeDropdown.classList.add('hidden');
         }
     });
-
-    instalacaoUfSelectPronto = true;
 }
 
-function ensureProjetoPageClienteAutocomplete() {
-    if (!clienteAutocompleteProjetoPage) {
-        clienteAutocompleteProjetoPage = initClienteAutocomplete('proj-page-cliente-autocomplete', {
-            getClienteAtualId: () => document.getElementById('proj-page-cliente-id').value,
-            onSelect: (clienteId) => {
-                document.getElementById('proj-page-cliente-id').value = clienteId;
-                // Só copia o endereço do Cliente para a Localização da Instalação
-                // ao CRIAR o Projeto (valor inicial). Em edição, trocar o cliente
-                // não deve sobrescrever uma localização de instalação já salva.
-                if (!state.editingProjetoPageId) {
-                    copiarEnderecoClienteParaInstalacao(clienteId);
-                }
-            }
-        });
+// Recalcula a distribuidora automática a partir do que está preenchido
+// nos campos de UF/cidade da Proposta neste momento (não sobrescreve se
+// o usuário já tiver escolhido manualmente e o badge estiver escondido).
+function atualizarDistribuidoraAutomaticaProposta() {
+    const badge = document.getElementById('proposta-loc-distribuidora-auto-badge');
+    if (badge.classList.contains('hidden') && document.getElementById('proposta-loc-distribuidora').dataset.manual === '1') return;
+
+    const uf = document.getElementById('proposta-loc-uf').value;
+    const cidade = document.getElementById('proposta-loc-cidade').value;
+    const distribuidoraSelect = document.getElementById('proposta-loc-distribuidora');
+    const distribuidoraAuto = determinarDistribuidora(uf, cidade);
+    if (distribuidoraAuto) {
+        distribuidoraSelect.value = distribuidoraAuto;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
     }
-    return clienteAutocompleteProjetoPage;
 }
 
-export function openProjetoPageModal() {
-    state.editingProjetoPageId = null;
-    ensureProjetoPageClienteAutocomplete();
-    ensureInstalacaoUfSelect();
-    document.getElementById('projeto-page-modal-title').textContent = 'Novo Projeto';
-    document.getElementById('proj-page-btn-save').textContent = 'Salvar';
-    document.getElementById('proj-page-nome').value = '';
-    document.getElementById('proj-page-cliente-id').value = '';
-    document.getElementById('proj-page-responsavel').value = '';
-    // Novo projeto: começa no primeiro dos 5 status da interface nova (o
-    // DEFAULT do banco continua 'Rascunho' até o usuário escolher outro).
-    document.getElementById('proj-page-status').value = STATUS_PROJETO[0];
-    document.getElementById('proj-page-data').value = '';
-    document.getElementById('proj-page-observacoes').value = '';
-    // Localização da instalação: sem cliente selecionado ainda, começa vazia.
-    // Assim que o cliente for escolhido (onSelect abaixo), copia o endereço
-    // dele como valor inicial — depois disso o usuário pode editar à vontade.
-    limparLocalizacaoInstalacao();
-    clienteAutocompleteProjetoPage.refresh();
-    document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
+// Preenche a Localização (endereço da instalação) a partir do endereço
+// cadastrado do Cliente, quando existir — mas os campos ficam editáveis
+// e nada aqui é regravado no Cliente. Usada apenas ao criar uma Proposta
+// nova; ao reabrir uma existente, os valores salvos na própria Proposta
+// prevalecem (ver editarProposta).
+function preencherLocalizacaoDaProposta(cliente) {
+    popularSelectUfProposta();
+    popularSelectDistribuidoraProposta();
+    ligarListenersLocalizacaoProposta();
+
+    document.getElementById('proposta-loc-cep').value = cliente?.cep || '';
+    document.getElementById('proposta-loc-endereco').value = cliente?.endereco_completo || '';
+    document.getElementById('proposta-loc-numero').value = cliente?.numero || '';
+    document.getElementById('proposta-loc-complemento').value = cliente?.complemento || '';
+    document.getElementById('proposta-loc-bairro').value = cliente?.bairro || '';
+    document.getElementById('proposta-loc-uf').value = cliente?.estado || '';
+    document.getElementById('proposta-loc-cidade').value = cliente?.cidade || '';
+    if (cliente?.estado) getMunicipiosPorUf(cliente.estado);
+
+    document.getElementById('proposta-loc-tipo-telhado').value = '';
+    document.getElementById('proposta-loc-tipo-telhado-outro').value = '';
+    toggleTipoTelhadoOutroProposta();
+
+    document.getElementById('proposta-loc-distribuidora').dataset.manual = '';
+    atualizarDistribuidoraAutomaticaProposta();
 }
 
-export function closeProjetoPageModal() {
-    document.getElementById('projeto-page-modal-overlay').classList.add('hidden');
-    state.editingProjetoPageId = null;
+function getClienteDaProposta(clienteId) {
+    return state.localClientes.find(c => String(c.id) === String(clienteId)) || null;
 }
 
-export function editProjetoPage(id) {
-    const p = state.localProjetos.find(x => String(x.id) === String(id));
-    if (!p) return;
-    state.editingProjetoPageId = id;
-    ensureProjetoPageClienteAutocomplete();
-    ensureInstalacaoUfSelect();
-    document.getElementById('projeto-page-modal-title').textContent = 'Editar Projeto';
-    document.getElementById('proj-page-btn-save').textContent = 'Salvar Alterações';
-    document.getElementById('proj-page-nome').value = p.nome || '';
-    document.getElementById('proj-page-cliente-id').value = p.cliente_id || '';
-    document.getElementById('proj-page-responsavel').value = p.responsavel || '';
+// ------------------------------------------------------------------
+// Abrir a tela própria da Proposta
+// ------------------------------------------------------------------
 
-    // Projeto antigo pode ter um status fora dos 5 da interface nova (ex.:
-    // "Rascunho", "Em orçamento"). Não sobrescrever automaticamente: se o
-    // valor atual não está entre os 5, adiciona-o como opção temporária no
-    // <select> para que o valor original seja preservado até o usuário
-    // escolher explicitamente um novo status.
-    const statusSelect = document.getElementById('proj-page-status');
-    const statusExtraOption = statusSelect.querySelector('option[data-status-legado]');
-    if (statusExtraOption) statusExtraOption.remove();
-    const statusAtual = p.status || 'Rascunho';
-    if (!STATUS_PROJETO.includes(statusAtual)) {
-        const opt = document.createElement('option');
-        opt.value = statusAtual;
-        opt.textContent = `${statusAtual} (status anterior)`;
-        opt.setAttribute('data-status-legado', '1');
-        statusSelect.insertBefore(opt, statusSelect.firstChild);
+// Nova Proposta a partir de um Projeto (único fluxo de criação por
+// enquanto): cliente e projeto vêm do Projeto e não são escolhidos aqui.
+export function abrirNovaProposta(projeto) {
+    if (!projeto) return;
+    const cliente = getClienteDaProposta(projeto.cliente_id);
+
+    document.getElementById('proposta-id').value = '';
+    document.getElementById('proposta-projeto-id').value = projeto.id;
+    document.getElementById('proposta-cliente-id').value = projeto.cliente_id;
+    document.getElementById('proposta-cliente-nome').value = cliente ? cliente.nome : '';
+    document.getElementById('proposta-projeto-nome').value = projeto.nome;
+    document.getElementById('proposta-tipo').value = 'Energia Fotovoltaica On-Grid';
+    document.getElementById('proposta-tipo-detalhado').value = '';
+
+    preencherLocalizacaoDaProposta(cliente);
+
+    document.getElementById('proposta-editor-title').textContent = 'Nova Proposta';
+    document.getElementById('proposta-editor-subtitle').textContent = `Projeto: ${projeto.nome}`;
+
+    switchPropostaStep('cliente-servico');
+    switchTab('proposta-editor-tab');
+}
+
+// Reabre uma Proposta já existente (registro salvo na tabela orcamentos)
+// na tela própria de Proposta — nunca no editor de Orçamento.
+export function editarProposta(id) {
+    const o = state.localOrcamentos.find(item => item.id === id);
+    if (!o) return;
+    const projeto = state.localProjetos.find(p => String(p.id) === String(o.projeto_id));
+    if (!projeto) return;
+    const cliente = getClienteDaProposta(o.cliente_id);
+
+    document.getElementById('proposta-id').value = o.id;
+    document.getElementById('proposta-projeto-id').value = projeto.id;
+    document.getElementById('proposta-cliente-id').value = o.cliente_id;
+    document.getElementById('proposta-cliente-nome').value = cliente ? cliente.nome : '';
+    document.getElementById('proposta-projeto-nome').value = projeto.nome;
+    document.getElementById('proposta-tipo').value = o.tipo_orcamento;
+    document.getElementById('proposta-tipo-detalhado').value = o.tipo_servico_detalhado || '';
+
+    // Localização: começa a partir do Cliente (mesmo comportamento de
+    // abrirNovaProposta) e, na sequência, sobrescreve com o que já foi
+    // salvo especificamente nesta Proposta, se houver.
+    preencherLocalizacaoDaProposta(cliente);
+
+    if (o.instalacao_cep) document.getElementById('proposta-loc-cep').value = o.instalacao_cep;
+    if (o.instalacao_endereco) document.getElementById('proposta-loc-endereco').value = o.instalacao_endereco;
+    if (o.instalacao_numero) document.getElementById('proposta-loc-numero').value = o.instalacao_numero;
+    if (o.instalacao_complemento) document.getElementById('proposta-loc-complemento').value = o.instalacao_complemento;
+    if (o.instalacao_bairro) document.getElementById('proposta-loc-bairro').value = o.instalacao_bairro;
+    if (o.instalacao_uf) document.getElementById('proposta-loc-uf').value = o.instalacao_uf;
+    if (o.instalacao_cidade) document.getElementById('proposta-loc-cidade').value = o.instalacao_cidade;
+    if (o.instalacao_uf) getMunicipiosPorUf(o.instalacao_uf);
+
+    if (o.distribuidora) {
+        document.getElementById('proposta-loc-distribuidora').value = o.distribuidora;
+        document.getElementById('proposta-loc-distribuidora').dataset.manual = '1';
+        document.getElementById('proposta-loc-distribuidora-auto-badge').classList.add('hidden');
+    } else {
+        atualizarDistribuidoraAutomaticaProposta();
     }
-    statusSelect.value = statusAtual;
 
-    document.getElementById('proj-page-data').value = p.data_projeto || '';
-    document.getElementById('proj-page-observacoes').value = p.observacoes || '';
-    // Localização da instalação já salva do projeto — nunca a do cliente.
-    preencherLocalizacaoInstalacao(p);
-    clienteAutocompleteProjetoPage.refresh();
-    document.getElementById('projeto-page-modal-overlay').classList.remove('hidden');
+    if (o.tipo_telhado) {
+        document.getElementById('proposta-loc-tipo-telhado').value = o.tipo_telhado;
+        // Se o valor salvo não bate com nenhuma opção fixa, é uma descrição
+        // livre de "Outro" (comportamento igual ao já usado pelo Orçamento).
+        if (!document.getElementById('proposta-loc-tipo-telhado').value) {
+            document.getElementById('proposta-loc-tipo-telhado').value = 'Outro';
+            document.getElementById('proposta-loc-tipo-telhado-outro').value = o.tipo_telhado;
+        }
+        toggleTipoTelhadoOutroProposta();
+    }
+
+    document.getElementById('proposta-editor-title').textContent = 'Editar Proposta';
+    document.getElementById('proposta-editor-subtitle').textContent = `Projeto: ${projeto.nome}`;
+
+    switchPropostaStep('cliente-servico');
+    switchTab('proposta-editor-tab');
 }
 
-export async function saveProjetoPage() {
-    const nome = document.getElementById('proj-page-nome').value.trim();
-    const cliente_id = document.getElementById('proj-page-cliente-id').value;
-    const responsavel = document.getElementById('proj-page-responsavel').value.trim();
-    const status = document.getElementById('proj-page-status').value;
-    const observacoes = document.getElementById('proj-page-observacoes').value.trim();
+// Fecha a Proposta e volta para a sub-aba de Propostas dentro do Projeto,
+// usando o Router já existente (mantém a URL /projeto/:id/orcamentos
+// coerente, sem duplicar navegação).
+export function closePropostaEditor() {
+    irParaSubTabProjeto('orcamentos');
+}
 
-    const dataProjetoRaw = document.getElementById('proj-page-data').value;
-    const data_projeto = dataProjetoRaw || null;
+// ------------------------------------------------------------------
+// Gravar Cliente e Serviço + Localização (grava na tabela "orcamentos"
+// para manter compatibilidade com a listagem geral, o dashboard e a
+// exportação PDF/DOCX já existentes). Reaproveitada tanto ao avançar da
+// Localização para Unidades Consumidoras (para a Proposta já existir e
+// ter um id antes de cadastrar UCs) quanto no botão final "Salvar
+// Proposta". Nunca mexe em Unidades Consumidoras nem em nenhuma etapa
+// futura — cada etapa grava só os seus próprios dados.
+// ------------------------------------------------------------------
+async function salvarDadosBaseProposta() {
+    const id = document.getElementById('proposta-id').value;
+    const projeto_id = document.getElementById('proposta-projeto-id').value;
+    const cliente_id = document.getElementById('proposta-cliente-id').value;
 
-    // Localização da instalação: sempre enviada com o que estiver nos campos
-    // do modal (copiada do Cliente só como valor inicial na criação — ver
-    // copiarEnderecoClienteParaInstalacao — e depois livremente editável).
-    const localizacaoInstalacao = {
-        instalacao_cep: document.getElementById('proj-page-inst-cep').value.trim(),
-        instalacao_endereco_completo: document.getElementById('proj-page-inst-endereco').value.trim(),
-        instalacao_numero: document.getElementById('proj-page-inst-numero').value.trim(),
-        instalacao_complemento: document.getElementById('proj-page-inst-complemento').value.trim(),
-        instalacao_bairro: document.getElementById('proj-page-inst-bairro').value.trim(),
-        instalacao_cidade: document.getElementById('proj-page-inst-cidade').value.trim(),
-        instalacao_estado: document.getElementById('proj-page-inst-estado').value.trim()
+    if (!projeto_id || !cliente_id) {
+        alert("Proposta sem Projeto/Cliente vinculado — reabra a partir do Projeto.");
+        return false;
+    }
+
+    const tipoTelhadoSelecionado = document.getElementById('proposta-loc-tipo-telhado').value;
+    const tipoTelhado = tipoTelhadoSelecionado === 'Outro'
+        ? (document.getElementById('proposta-loc-tipo-telhado-outro').value || null)
+        : (tipoTelhadoSelecionado || null);
+
+    const payloadBase = {
+        cliente_id,
+        projeto_id,
+        tipo_orcamento: document.getElementById('proposta-tipo').value,
+        tipo_servico_detalhado: document.getElementById('proposta-tipo-detalhado').value,
+        instalacao_cep: document.getElementById('proposta-loc-cep').value || null,
+        instalacao_endereco: document.getElementById('proposta-loc-endereco').value || null,
+        instalacao_numero: document.getElementById('proposta-loc-numero').value || null,
+        instalacao_complemento: document.getElementById('proposta-loc-complemento').value || null,
+        instalacao_bairro: document.getElementById('proposta-loc-bairro').value || null,
+        instalacao_cidade: document.getElementById('proposta-loc-cidade').value || null,
+        instalacao_uf: document.getElementById('proposta-loc-uf').value || null,
+        distribuidora: document.getElementById('proposta-loc-distribuidora').value || null,
+        tipo_telhado: tipoTelhado
     };
 
-    if (!nome || !cliente_id) {
-        alert("Nome do projeto e Cliente são obrigatórios.");
-        return;
-    }
-
     try {
-        if (state.editingProjetoPageId) {
-            const { error } = await state.supabaseClient
-                .from('projetos')
-                .update({ nome, cliente_id, responsavel, status, observacoes, data_projeto, ...localizacaoInstalacao, updated_at: new Date().toISOString() })
-                .eq('id', state.editingProjetoPageId);
+        if (id) {
+            const { error } = await state.supabaseClient.from('orcamentos').update(payloadBase).eq('id', id);
             if (error) throw error;
-        } else {
-            const { error } = await state.supabaseClient
-                .from('projetos')
-                .insert({ nome, cliente_id, responsavel, status, observacoes, data_projeto, ...localizacaoInstalacao });
-            if (error) throw error;
+            return true;
         }
 
-        closeProjetoPageModal();
-        await syncFromSupabase();
+        // Primeira gravação desta Proposta: além dos campos acima, precisa
+        // preencher colunas obrigatórias da tabela "orcamentos" (mesma
+        // tabela do Orçamento) com valores neutros — nada disso é editável
+        // nesta tela ainda, e será substituído quando as etapas de Kit
+        // Gerador/preço existirem.
+        const hoje = new Date().toISOString().split('T')[0];
+        const validade = new Date();
+        validade.setDate(validade.getDate() + 15);
+
+        const { data, error } = await state.supabaseClient
+            .from('orcamentos')
+            .insert({
+                ...payloadBase,
+                valor_equipamentos: 0,
+                valor_mao_de_obra: 0,
+                valor_outros: 0,
+                status_comercial: 'Em Negociação',
+                status_execucao: 'A iniciar',
+                data_emissao: hoje,
+                validade_proposta: validade.toISOString().split('T')[0]
+            })
+            .select('id')
+            .single();
+        if (error) throw error;
+
+        document.getElementById('proposta-id').value = data.id;
+        return true;
     } catch (err) {
-        alert("Erro ao salvar projeto: " + err.message);
+        alert("Erro ao gravar a proposta: " + err.message);
+        return false;
     }
 }
 
-export async function deleteProjetoPage(id) {
-    if (possuiOrcamentosVinculados(id)) {
-        alert("NÃO É POSSÍVEL EXCLUIR ESTE PROJETO.\n\nExistem orçamentos vinculados a este projeto.");
-        return;
-    }
-    if (!confirm("Confirmar exclusão deste projeto?")) return;
-    try {
-        const { error } = await state.supabaseClient.from('projetos').delete().eq('id', id);
-        if (error) throw error;
-        await syncFromSupabase();
-    } catch (err) {
-        alert(err.message);
-    }
+export async function salvarProposta() {
+    const ok = await salvarDadosBaseProposta();
+    if (!ok) return;
+    await syncFromSupabase();
+    closePropostaEditor();
 }
