@@ -1270,13 +1270,20 @@
                 <div id="kit-gerador-erro" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
 
                 <!-- Resumo (sempre calculado, nunca digitado) -->
-                <div class="bg-slate-900 text-white rounded-xl shadow-md p-6 grid grid-cols-1 md:grid-cols-4 gap-5 items-center">
-                    <div class="md:col-span-2">
-                        <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Potência do Sistema</p>
-                        <p id="kit-potencia-sistema" class="text-5xl font-black mt-1">0,00 kWp</p>
-                        <p class="text-[11px] text-slate-400 mt-1">Calculada automaticamente a partir dos módulos.</p>
+                <div class="bg-slate-900 text-white rounded-xl shadow-md p-6 space-y-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Potência do Sistema</p>
+                            <p id="kit-potencia-sistema" class="text-5xl font-black mt-1">0,00 kWp</p>
+                            <p class="text-[11px] text-slate-400 mt-1">Calculada automaticamente a partir dos módulos.</p>
+                        </div>
+                        <div class="md:border-l md:border-white/10 md:pl-6">
+                            <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Valor do Kit</p>
+                            <p id="kit-valor-total" class="text-5xl font-black mt-1">R$ 0,00</p>
+                            <p id="kit-valor-kwp" class="text-[11px] text-slate-400 mt-1"></p>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-3 md:col-span-2 gap-3 text-center">
+                    <div class="grid grid-cols-3 gap-3 text-center">
                         <div class="bg-white/10 rounded-lg py-3">
                             <p id="kit-resumo-modulos" class="text-xl font-black">0</p>
                             <p class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Módulos</p>
@@ -1325,6 +1332,26 @@
                     </button>
                     </div>
                     <p class="text-xs text-slate-400">A topologia define quais blocos aparecem. Nada já cadastrado é apagado ao trocar.</p>
+                </div>
+
+                <!-- Valor do Kit -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider"><i class="fa-solid fa-tags mr-1 text-amber-500"></i> Valor do Kit</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" data-kit-modo="itens" onclick="alterarModoValor('itens')">
+                            <p class="text-sm font-extrabold text-slate-900">Somar equipamentos</p>
+                            <p class="text-[11px] text-slate-500">Preço de cada módulo, inversor etc. (opcional por item)</p>
+                        </button>
+                        <button type="button" data-kit-modo="total" onclick="alterarModoValor('total')">
+                            <p class="text-sm font-extrabold text-slate-900">Valor fechado do kit</p>
+                            <p class="text-[11px] text-slate-500">Informo só o total, sem preço por item</p>
+                        </button>
+                    </div>
+                    <div id="kit-valor-manual-wrap" class="hidden max-w-xs">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Valor total do kit (R$)</label>
+                        <input type="text" inputmode="decimal" id="kit-valor-manual" placeholder="0,00" onchange="salvarValorManual(this.value)" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 text-lg font-black font-mono">
+                    </div>
+                    <p id="kit-valor-dica" class="text-xs text-slate-400"></p>
                 </div>
 
                 <div id="kit-bloco-MODULO" class="bg-white rounded-xl border border-slate-200 shadow-xs">
