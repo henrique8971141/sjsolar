@@ -157,7 +157,7 @@ function renderTodasListas() {
         const sub = el(`kit-subtotal-${tipo}`);
         if (sub) {
             const w = somaPotencia(tipo);
-            sub.textContent = linhas.length ? `${fmt(w / 1000)} k${FONTE[tipo].unidade}${modoValor() === 'itens' ? ' · ' + brl(somaValor(tipo)) : ''}` : '';
+            sub.textContent = linhas.length ? `${fmt(w / 1000)} k${FONTE[tipo].unidade}` : '';
         }
         renderListaTipo(tipo, linhas);
     });
@@ -196,19 +196,9 @@ function renderListaTipo(tipo, linhas) {
                         class="w-9 h-9 text-slate-600 hover:bg-slate-100" title="Aumentar"><i class="fa-solid fa-plus text-xs"></i></button>
                 </div>
 
-                ${modoValor() === 'itens' ? `
-                <div>
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Preço unit. (R$)</p>
-                    <input type="text" inputmode="decimal" placeholder="opcional" value="${Number(eq.preco_unitario) ? fmt(eq.preco_unitario) : ''}" onchange="atualizarPrecoEquipamento('${esc(eq.id)}', this.value)"
-                        class="w-28 h-9 px-2 rounded-lg border border-slate-200 text-sm font-bold font-mono text-right focus:outline-none focus:ring-2 focus:ring-amber-400">
-                </div>` : ''}
-
                 <div class="w-32 text-right">
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${modoValor() === 'itens' ? 'Subtotal' : 'Potência'}</p>
-                    ${modoValor() === 'itens'
-                        ? `<p class="text-sm font-black text-emerald-700">${brl((Number(eq.preco_unitario) || 0) * qtd)}</p>
-                           <p class="text-[11px] text-slate-400">${fmt(total / 1000)} k${un}</p>`
-                        : `<p class="text-sm font-black text-slate-900">${fmt(total / 1000)} k${un}</p>`}
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Potência</p>
+                    <p class="text-sm font-black text-slate-900">${fmt(total / 1000)} k${un}</p>
                 </div>
 
                 <button type="button" onclick="removerEquipamento('${esc(eq.id)}')" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 transition-colors" title="Remover">
@@ -322,7 +312,6 @@ export async function selecionarEquipamentoCatalogo(tipo, inputId, itemId) {
         fabricante: item.marca || null,
         modelo: item.descricao,
         potencia_unitaria: potencia,
-        preco_unitario: Number(item.preco) || 0,
         quantidade: 1,
         ordem: equipamentosAtual.filter(e => e.tipo === tipo).length + 1
     };
@@ -331,11 +320,9 @@ export async function selecionarEquipamentoCatalogo(tipo, inputId, itemId) {
         const { error } = await state.supabaseClient.from('proposta_equipamentos').insert(payload);
         if (error) throw error;
     } catch (err) {
-        const dica = /preco_unitario/i.test(err.message)
-            ? '\n\nRode o SQL 006 no Supabase (cria a coluna preco_unitario).'
-            : /foreign key|violates/i.test(err.message)
-                ? '\n\nRode o SQL 005 no Supabase (remove a ligação antiga com o Catálogo Geral).'
-                : '';
+        const dica = /foreign key|violates/i.test(err.message)
+            ? '\n\nRode o SQL 005 no Supabase (remove a ligação antiga com o Catálogo Geral).'
+            : '';
         alert('Erro ao adicionar equipamento: ' + err.message + dica);
         return;
     }
@@ -360,21 +347,6 @@ export async function atualizarQuantidadeEquipamento(id, novaQuantidade) {
         if (error) throw error;
     } catch (err) {
         alert('Erro ao atualizar quantidade: ' + err.message);
-        await carregarKitGerador(propostaIdAtual);
-    }
-}
-
-// Preço unitário editável por linha (o valor do catálogo é só o ponto de partida)
-export async function atualizarPrecoEquipamento(id, valor) {
-    const preco = parseMoeda(valor);
-    if (preco < 0) { alert('O preço não pode ser negativo.'); renderTudo(); return; }
-    const linha = equipamentosAtual.find(e => String(e.id) === String(id));
-    if (linha) { linha.preco_unitario = preco; renderTudo(); }
-    try {
-        const { error } = await state.supabaseClient.from('proposta_equipamentos').update({ preco_unitario: preco }).eq('id', id);
-        if (error) throw error;
-    } catch (err) {
-        alert('Erro ao atualizar preço: ' + err.message + (/preco_unitario/i.test(err.message) ? '\n\nRode o SQL 006 no Supabase.' : ''));
         await carregarKitGerador(propostaIdAtual);
     }
 }
@@ -440,55 +412,22 @@ function somaPotencia(tipo) {
         .reduce((acc, e) => acc + (Number(e.potencia_unitaria) || 0) * (Number(e.quantidade) || 0), 0);
 }
 
-// Dois modos de preço do kit:
-//  'itens' = soma (preço unitário × quantidade) dos equipamentos (preço de cada item é opcional)
-//  'total' = valor fechado do kit, digitado direto (sem preço por item)
-function modoValor() {
-    return kitAtual?.kit_valor_modo === 'total' ? 'total' : 'itens';
-}
-
+// Valor do kit: um único valor geral, digitado (sem preço por equipamento).
 function valorKit() {
-    return modoValor() === 'total' ? (Number(kitAtual?.kit_valor_manual) || 0) : somaValor();
+    return Number(kitAtual?.kit_valor) || 0;
 }
 
 function renderValorKit() {
-    const modo = modoValor();
-    document.querySelectorAll('[data-kit-modo]').forEach(btn => {
-        btn.className = 'flex-1 min-w-[200px] px-4 py-3 rounded-xl border-2 text-left transition-all ' + (btn.dataset.kitModo === modo
-            ? 'border-amber-400 bg-amber-50 shadow-xs'
-            : 'border-slate-200 bg-white hover:border-slate-300');
-    });
-    const wrap = el('kit-valor-manual-wrap');
-    if (wrap) wrap.classList.toggle('hidden', modo !== 'total');
-    const inp = el('kit-valor-manual');
-    if (inp && document.activeElement !== inp) inp.value = Number(kitAtual?.kit_valor_manual) ? fmt(kitAtual.kit_valor_manual) : '';
-    const dica = el('kit-valor-dica');
-    if (dica) dica.textContent = modo === 'itens'
-        ? 'Informe o preço unitário nas linhas dos equipamentos (pode deixar em branco os que não têm preço).'
-        : 'Informe só o valor total do kit. Os preços por equipamento não são usados.';
+    const inp = el('kit-valor');
+    if (inp && document.activeElement !== inp) inp.value = valorKit() ? fmt(valorKit()) : '';
 }
 
-export async function alterarModoValor(modo) {
-    if (!propostaIdAtual || (modo !== 'itens' && modo !== 'total')) return;
-    const campos = { kit_valor_modo: modo };
-    // ao ir para "valor fechado" pela 1ª vez, começa com a soma atual dos itens
-    if (modo === 'total' && !(Number(kitAtual?.kit_valor_manual) > 0) && somaValor() > 0) campos.kit_valor_manual = somaValor();
-    await salvarKit(campos);
-    renderTudo();
-}
-
-export async function salvarValorManual(valor) {
+export async function salvarValorKit(valor) {
     if (!propostaIdAtual) return;
     const v = parseMoeda(valor);
     if (v < 0) { alert('O valor não pode ser negativo.'); renderTudo(); return; }
-    await salvarKit({ kit_valor_manual: v });
+    await salvarKit({ kit_valor: v });
     renderTudo();
-}
-
-function somaValor(tipo) {
-    return equipamentosAtual
-        .filter(e => !tipo || e.tipo === tipo)
-        .reduce((acc, e) => acc + (Number(e.preco_unitario) || 0) * (Number(e.quantidade) || 0), 0);
 }
 
 function somaQuantidade(tipo) {
