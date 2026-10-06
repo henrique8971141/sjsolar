@@ -124,40 +124,72 @@ function desenhar(tela, p) {
 
     // tela === 'exportar'
     const v = p.vars;
-    const linhas = [
-        ['Cliente', '[cliente_nome]', v.cliente_nome],
-        ['Cidade (aparece no documento)', '[cidade]', v.cidade],
-        ['Potência do sistema', '[potencia_sistema]', `${v.potencia_sistema} kWp`],
-        ['Geração estimada', '[geracao_mensal]', `${v.geracao_mensal} kWh/mês`],
-        ['Módulo', '[modulo_descricao]', v.modulo_descricao],
-        ['Potência do módulo', '[modulo_potencia]', `${v.modulo_potencia} Wp`],
-        ['Quantidade de módulos', '[modulo_quantidade]', v.modulo_quantidade],
-        ['Fabricante do inversor', '[inversor_fabricante]', v.inversor_fabricante],
-        ['Inversor', '[inversor_descricao]', v.inversor_descricao],
-        ['Quantidade de inversores', '[inversores_utilizados]', v.inversores_utilizados],
-        ['Emissão da proposta', '[validade]', v.validade],
-        ['Validade (dias)', '[quantidade]', `${v.quantidade} dias`],
-        ['Investimento', '[preco]', `R$ ${v.preco}`],
-        ['Data por extenso', '[data]', v.data]
-    ].map(([rot, tag, val]) => `
-        <tr class="border-b border-slate-100">
-            <td class="py-2 pr-3 font-bold text-slate-700">${esc(rot)}</td>
-            <td class="py-2 pr-3 text-[11px] text-slate-400 font-mono">${esc(tag)}</td>
-            <td class="py-2 text-slate-900 ${val === '' || val === undefined || val === null ? 'text-red-500 font-bold' : ''}">${esc(val === '' || val === undefined || val === null ? '(vazio)' : val)}</td>
-        </tr>`).join('');
+    const vazio = val => val === '' || val === undefined || val === null;
+    const linha = (rot, tag, val) => `
+        <div class="flex items-start justify-between gap-4 py-2.5 border-b border-slate-100 last:border-0">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-slate-700">${esc(rot)}</p>
+                <p class="text-[10px] text-slate-400 font-mono mt-0.5">${esc(tag)}</p>
+            </div>
+            <p class="text-sm text-right ${vazio(val) ? 'text-red-500 font-bold' : 'text-slate-900 font-medium'}">${esc(vazio(val) ? '(vazio)' : val)}</p>
+        </div>`;
+    const secao = (icone, titulo, itens) => `
+        <section class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                <i class="fa-solid ${icone} text-slate-400 text-xs"></i>
+                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">${esc(titulo)}</h3>
+            </div>
+            <div class="px-5">${itens.map(i => linha(...i)).join('')}</div>
+        </section>`;
+    const destaque = (rot, val, sub) => `
+        <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${esc(rot)}</p>
+            <p class="text-lg font-bold text-slate-900 mt-1 leading-tight">${esc(vazio(val) ? '—' : val)}</p>
+            ${sub ? `<p class="text-[11px] text-slate-400 mt-0.5">${esc(sub)}</p>` : ''}
+        </div>`;
+
+    const secoes = [
+        secao('fa-user', 'Cliente', [
+            ['Cliente', '[cliente_nome]', v.cliente_nome],
+            ['Cidade (aparece no documento)', '[cidade]', v.cidade]
+        ]),
+        secao('fa-solar-panel', 'Sistema', [
+            ['Potência do sistema', '[potencia_sistema]', `${v.potencia_sistema} kWp`],
+            ['Geração estimada', '[geracao_mensal]', `${v.geracao_mensal} kWh/mês`],
+            ['Marca do módulo', '[modulo_marca]', v.modulo_marca],
+            ['Módulo (descrição cadastrada)', '[modulo_descricao]', v.modulo_descricao],
+            ['Potência do módulo', '[modulo_potencia]', `${v.modulo_potencia} Wp`],
+            ['Quantidade de módulos', '[modulo_quantidade]', v.modulo_quantidade],
+            ['Fabricante do inversor', '[inversor_fabricante]', v.inversor_fabricante],
+            ['Inversor', '[inversor_descricao]', v.inversor_descricao],
+            ['Quantidade de inversores', '[inversores_utilizados]', v.inversores_utilizados]
+        ]),
+        secao('fa-calendar-days', 'Data e validade', [
+            ['Data de emissão', '[data_emissao]  ·  [validade]', v.data_emissao],
+            ['Válida até', '[validade_data]', v.validade_data],
+            ['Validade em dias', '[validade_dias]  ·  [quantidade]', `${v.validade_dias} dias`],
+            ['Data por extenso', '[data]', v.data]
+        ]),
+        secao('fa-sack-dollar', 'Investimento', [
+            ['Valor total', '[preco]', `R$ ${v.preco}`]
+        ])
+    ].join('');
 
     cont.innerHTML = `
         <div class="space-y-4">
             ${cabecalho(p, 'Exportar proposta')}
             ${avisos}
-            <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Dados que vão para o documento</p>
-                <div class="overflow-x-auto"><table class="w-full text-sm"><tbody>${linhas}</tbody></table></div>
-                <p class="text-[11px] text-slate-400 mt-3">Para corrigir algo, volte à proposta e ajuste a etapa correspondente.</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                ${destaque('Investimento', `R$ ${v.preco}`)}
+                ${destaque('Potência', `${v.potencia_sistema} kWp`, `${v.geracao_mensal} kWh/mês`)}
+                ${destaque('Emissão', v.data_emissao)}
+                ${destaque('Válida até', v.validade_data, `${v.validade_dias} dias`)}
             </div>
-            <div class="flex flex-wrap gap-2">
-                ${botao('docx', 'fa-file-word', 'Baixar DOCX', ESTILO_PRIM, bloqueado)}
+            <div class="grid gap-4 md:grid-cols-2">${secoes}</div>
+            <p class="text-[11px] text-slate-400">Para corrigir algo, volte à proposta e ajuste a etapa correspondente.</p>
+            <div class="sticky bottom-0 -mx-1 px-1 py-3 bg-gradient-to-t from-white via-white/95 to-transparent flex flex-wrap gap-2">
                 ${botao('pdf', 'fa-file-pdf', 'Baixar PDF', ESTILO_AMBAR, bloqueado)}
+                ${botao('docx', 'fa-file-word', 'Baixar DOCX', ESTILO_PRIM, bloqueado)}
                 ${botao('ir-previa', 'fa-eye', 'Pré-visualizar', ESTILO_SEC, false)}
             </div>
         </div>`;

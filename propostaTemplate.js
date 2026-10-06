@@ -75,7 +75,10 @@ export function montarVariaveis(o, equipamentos, kit) {
         cliente_nome: o.cliente_nome,
         potencia_sistema: fmt(kwp),
         geracao_mensal: fmt(kit?.kit_geracao_kwh, 0, 2),
-        modulo_descricao: [mod.fabricante, mod.modelo].filter(Boolean).join(' '),
+        // Descrição exatamente como cadastrada (o modelo já pode trazer a marca).
+        // A marca vai separada, em [modulo_marca], só para quem quiser usar.
+        modulo_descricao: mod.modelo || '',
+        modulo_marca: mod.fabricante || '',
         modulo_potencia: fmt(mod.potencia_unitaria, 0, 2),
         modulo_quantidade: qtd(modulos),
         inversor_fabricante: inv.fabricante || '',
@@ -85,6 +88,12 @@ export function montarVariaveis(o, equipamentos, kit) {
         validade: dataBR(o.data_emissao),
         // Dias de validade (emissão até validade_proposta).
         quantidade: diasEntre(o.data_emissao, o.validade_proposta),
+        // Campos novos (use no modelo se quiser): data de emissão, data final
+        // de validade e dias de validade com nomes claros.
+        // As variáveis antigas acima continuam valendo, então os modelos atuais não quebram.
+        data_emissao: dataBR(o.data_emissao),
+        validade_data: dataBR(o.validade_proposta),
+        validade_dias: diasEntre(o.data_emissao, o.validade_proposta),
         preco: fmt(total),
         cidade: o.instalacao_cidade || o.cliente_cidade || '',
         data: dataExtenso(o.data_emissao)
