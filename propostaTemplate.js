@@ -13,7 +13,7 @@ import { state } from './state.js';
 import { calcularTotalOrcamento } from './utils.js';
 
 // ============================================================
-// >>> AJUSTE AQUI: os modelos disponíveis (arquivos em /templates/)
+// >>> AJUSTE AQUI: os modelos disponíveis (arquivos .docx na pasta /templates/)
 // id: curto e único | nome: o que aparece no seletor
 // ============================================================
 export const MODELOS = [
@@ -156,7 +156,7 @@ export function setModelo(p, id) {
 export async function gerarDocxBlob(p) {
     if (!p.modelo) throw new Error('Escolha o modelo da proposta.');
     const resp = await fetch(`/templates/${p.modelo.arquivo}`);
-    if (!resp.ok) throw new Error(`Modelo não encontrado em /templates/${p.modelo.arquivo}`);
+    if (!resp.ok) throw new Error(`Modelo não encontrado: /templates/${p.modelo.arquivo}`);
 
     const doc = new window.docxtemplater(new window.PizZip(await resp.arrayBuffer()), {
         delimiters: { start: '[', end: ']' },
