@@ -78,8 +78,34 @@ export function montarVariaveis(o, equipamentos, kit, datas = {}) {
     const kwp = modulos.reduce((a, e) => a + (Number(e.potencia_unitaria) || 0) * (Number(e.quantidade) || 0), 0) / 1000;
     const qtd = lista => lista.reduce((a, e) => a + (Number(e.quantidade) || 0), 0);
 
-    const mod = modulos[0] || {};
-    const inv = inversores[0] || {};
+    // Agrupa por modelo (mesmo produto = soma das quantidades). Serve para 1, 2 ou N modelos.
+    const agrupar = lista => {
+        const mapa = new Map();
+        lista.forEach(e => {
+            const k = String(e.produto_id ?? e.modelo ?? '');
+            const g = mapa.get(k) || { e, quantidade: 0 };
+            g.quantidade += Number(e.quantidade) || 0;
+            mapa.set(k, g);
+        });
+        return [...mapa.values()];
+    };
+    const gMod = agrupar(modulos);
+    const gInv = agrupar(inversores);
+    const juntar = (arr, sep) => [...new Set(arr.filter(Boolean))].join(sep);
+
+    // Listas para linhas repetíveis no modelo: [#modulos] ... [/modulos] e [#inversores] ... [/inversores].
+    // Dentro do bloco usam-se os mesmos nomes de sempre ([inversor_descricao], [inversores_utilizados]...).
+    const listaModulos = gMod.map(({ e, quantidade }) => ({
+        modulo_descricao: e.modelo || '',
+        modulo_marca: e.fabricante || '',
+        modulo_potencia: fmt(e.potencia_unitaria, 0, 2),
+        modulo_quantidade: quantidade
+    }));
+    const listaInversores = gInv.map(({ e, quantidade }) => ({
+        inversor_descricao: e.modelo || '',
+        inversor_fabricante: e.fabricante || '',
+        inversores_utilizados: quantidade
+    }));
     const { total } = calcularTotalOrcamento(o);
 
     return {
@@ -88,13 +114,17 @@ export function montarVariaveis(o, equipamentos, kit, datas = {}) {
         geracao_mensal: fmt(kit?.kit_geracao_kwh, 0, 2),
         // Descrição exatamente como cadastrada (o modelo já pode trazer a marca).
         // A marca vai separada, em [modulo_marca], só para quem quiser usar.
-        modulo_descricao: mod.modelo || '',
-        modulo_marca: mod.fabricante || '',
-        modulo_potencia: fmt(mod.potencia_unitaria, 0, 2),
+        // Versões "numa linha só" (modelo sem linha repetível): com 2+ modelos,
+        // os nomes saem juntos ("A + B") e a quantidade é o total.
+        modulo_descricao: juntar(listaModulos.map(m => m.modulo_descricao), ' + '),
+        modulo_marca: juntar(listaModulos.map(m => m.modulo_marca), ' + '),
+        modulo_potencia: juntar(listaModulos.map(m => m.modulo_potencia), ' / '),
         modulo_quantidade: qtd(modulos),
-        inversor_fabricante: inv.fabricante || '',
-        inversor_descricao: inv.modelo || '',
+        inversor_fabricante: juntar(listaInversores.map(i => i.inversor_fabricante), ' + '),
+        inversor_descricao: juntar(listaInversores.map(i => i.inversor_descricao), ' + '),
         inversores_utilizados: qtd(inversores),
+        modulos: listaModulos,
+        inversores: listaInversores,
         // No modelo, [validade] vem depois de "Emissão da Proposta:" -> data de emissão.
         validade: dataBR(emissao),
         // Dias de validade (emissão até validade_proposta).
@@ -147,8 +177,8 @@ export async function prepararProposta(id) {
         if (!(Number(kit?.kit_geracao_kwh) > 0)) avisos.push('A geração estimada (kWh/mês) está vazia.');
         if (!(calcularTotalOrcamento(o).total > 0)) avisos.push('O valor da proposta está zerado.');
         const distintos = tipo => new Set(equipamentos.filter(e => tipo.includes(e.tipo)).map(e => String(e.produto_id ?? e.modelo))).size;
-        if (distintos(['MODULO']) > 1) avisos.push('Há mais de um modelo de módulo. O modelo mostra só o primeiro (a quantidade é a soma).');
-        if (distintos(['INVERSOR', 'MICROINVERSOR']) > 1) avisos.push('Há mais de um modelo de inversor. O modelo mostra só o primeiro (a quantidade é a soma).');
+        if (distintos(['MODULO']) > 1) avisos.push('Há mais de um modelo de módulo. Se a tabela do modelo não tiver a linha repetível [#modulos]…[/modulos], os nomes saem juntos numa linha só.');
+        if (distintos(['INVERSOR', 'MICROINVERSOR']) > 1) avisos.push('Há mais de um modelo de inversor. Se a tabela do modelo não tiver a linha repetível [#inversores]…[/inversores], os nomes saem juntos numa linha só.');
     }
 
     const p = { o, vars, equipamentos, kit, ehFv, errosBase: erros, erros: [], avisos, datas, modelo: modeloSalvo(o.id) };
