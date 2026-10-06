@@ -33,6 +33,11 @@ function gravarLocal(chave, valor) {
     try { localStorage.setItem(chave, valor); } catch (e) { /* sem armazenamento: ignora */ }
 }
 
+const chaveDatas = id => `sjsolar:datas:${id}`;
+function lerDatas(id) {
+    try { return JSON.parse(lerLocal(chaveDatas(id)) || '{}') || {}; } catch (e) { return {}; }
+}
+
 function modeloSalvo(propostaId) {
     const id = lerLocal(chaveModelo(propostaId)) || lerLocal(CHAVE_ULTIMO);
     return MODELOS.find(m => m.id === id) || null;
@@ -47,20 +52,25 @@ const fmt = (n, min = 2, max = min) =>
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho',
     'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
-const dataBR = iso => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR');
+const dataBR = iso => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : '';
 
 const dataExtenso = iso => {
+    if (!iso) return '';
     const d = new Date(iso + 'T00:00:00');
     return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 };
 
-const diasEntre = (a, b) =>
+const diasEntre = (a, b) => (!a || !b) ? '' :
     Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
 
 // ------------------------------------------------------------
 // Variáveis do modelo
 // ------------------------------------------------------------
-export function montarVariaveis(o, equipamentos, kit) {
+// datas = { emissao, validade } (YYYY-MM-DD) digitadas na tela Exportar.
+// Se vazias, vale o que está na proposta.
+export function montarVariaveis(o, equipamentos, kit, datas = {}) {
+    const emissao = datas.emissao || o.data_emissao || '';
+    const validadeIso = datas.validade || o.validade_proposta || '';
     const modulos = equipamentos.filter(e => e.tipo === 'MODULO');
     const inversores = equipamentos.filter(e => e.tipo === 'INVERSOR' || e.tipo === 'MICROINVERSOR');
 
@@ -85,18 +95,18 @@ export function montarVariaveis(o, equipamentos, kit) {
         inversor_descricao: inv.modelo || '',
         inversores_utilizados: qtd(inversores),
         // No modelo, [validade] vem depois de "Emissão da Proposta:" -> data de emissão.
-        validade: dataBR(o.data_emissao),
+        validade: dataBR(emissao),
         // Dias de validade (emissão até validade_proposta).
-        quantidade: diasEntre(o.data_emissao, o.validade_proposta),
+        quantidade: diasEntre(emissao, validadeIso),
         // Campos novos (use no modelo se quiser): data de emissão, data final
         // de validade e dias de validade com nomes claros.
         // As variáveis antigas acima continuam valendo, então os modelos atuais não quebram.
-        data_emissao: dataBR(o.data_emissao),
-        validade_data: dataBR(o.validade_proposta),
-        validade_dias: diasEntre(o.data_emissao, o.validade_proposta),
+        data_emissao: dataBR(emissao),
+        validade_data: dataBR(validadeIso),
+        validade_dias: diasEntre(emissao, validadeIso),
         preco: fmt(total),
         cidade: o.instalacao_cidade || o.cliente_cidade || '',
-        data: dataExtenso(o.data_emissao)
+        data: dataExtenso(emissao)
     };
 }
 
@@ -121,13 +131,17 @@ export async function prepararProposta(id) {
     const equipamentos = eq.data || [];
     const kit = kitRes.data || null;
     const finalizada = !rev.error && !!rev.data?.finalizada; // se a tabela não existir, ignora
-    const vars = montarVariaveis(o, equipamentos, kit);
+    const salvas = lerDatas(o.id);
+    const datas = {
+        emissao: salvas.emissao || o.data_emissao || '',
+        validade: salvas.validade || o.validade_proposta || ''
+    };
+    const vars = montarVariaveis(o, equipamentos, kit, datas);
     const ehFv = equipamentos.some(e => e.tipo === 'MODULO');
 
     const erros = [];
     const avisos = [];
     if (!ehFv) erros.push('Esta proposta não tem módulos no Kit Gerador.');
-    if (!o.data_emissao || !o.validade_proposta) erros.push('Faltam as datas de emissão e validade.');
 
     if (ehFv) {
         if (!equipamentos.some(e => e.tipo === 'INVERSOR' || e.tipo === 'MICROINVERSOR')) avisos.push('Nenhum inversor ou microinversor no Kit Gerador.');
@@ -139,14 +153,26 @@ export async function prepararProposta(id) {
         if (distintos(['INVERSOR', 'MICROINVERSOR']) > 1) avisos.push('Há mais de um modelo de inversor. O modelo mostra só o primeiro (a quantidade é a soma).');
     }
 
-    const p = { o, vars, equipamentos, kit, finalizada, ehFv, errosBase: erros, erros: [], avisos, modelo: modeloSalvo(o.id) };
+    const p = { o, vars, equipamentos, kit, finalizada, ehFv, errosBase: erros, erros: [], avisos, datas, modelo: modeloSalvo(o.id) };
     reconferir(p);
     return p;
 }
 
 // Erros = os da proposta + "escolha o modelo" quando nenhum está selecionado.
 export function reconferir(p) {
-    p.erros = [...p.errosBase, ...(p.modelo ? [] : ['Escolha o modelo da proposta.'])];
+    const errosDatas = [];
+    if (!p.datas?.emissao || !p.datas?.validade) errosDatas.push('Preencha a data de emissão e a validade.');
+    else if (p.datas.validade < p.datas.emissao) errosDatas.push('A validade não pode ser anterior à emissão.');
+    p.erros = [...p.errosBase, ...errosDatas, ...(p.modelo ? [] : ['Escolha o modelo da proposta.'])];
+}
+
+// Datas digitadas na tela Exportar (emissao / validade em YYYY-MM-DD).
+// Ficam salvas neste navegador, por proposta, como o modelo.
+export function setDatas(p, emissao, validade) {
+    p.datas = { emissao: emissao || '', validade: validade || '' };
+    gravarLocal(chaveDatas(p.o.id), JSON.stringify(p.datas));
+    p.vars = montarVariaveis(p.o, p.equipamentos, p.kit, p.datas);
+    reconferir(p);
 }
 
 // Define o modelo (id) e lembra a escolha.

@@ -9,7 +9,7 @@
 import { state } from './state.js';
 import { switchTab } from './ui.js';
 import { navegarPara } from './router.js';
-import { MODELOS, setModelo, prepararProposta, pdfEmCache, obterPdf, baixar } from './propostaTemplate.js';
+import { MODELOS, setModelo, setDatas, prepararProposta, pdfEmCache, obterPdf, baixar } from './propostaTemplate.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const el = id => document.getElementById(id);
@@ -141,6 +141,34 @@ function desenhar(tela, p) {
             </div>
             <div class="px-5">${itens.map(i => linha(...i)).join('')}</div>
         </section>`;
+    const INPUT = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400';
+    const secaoDatas = p => `
+        <section class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-slate-400 text-xs"></i>
+                <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Data e validade</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <label class="block">
+                    <span class="text-sm font-semibold text-slate-700">Data de emissão</span>
+                    <span class="block text-[10px] text-slate-400 font-mono mb-1.5">[data_emissao] · [validade] · [data]</span>
+                    <input type="date" data-data="emissao" value="${esc(p.datas.emissao)}" class="${INPUT}">
+                </label>
+                <label class="block">
+                    <span class="text-sm font-semibold text-slate-700">Válida até</span>
+                    <span class="block text-[10px] text-slate-400 font-mono mb-1.5">[validade_data]</span>
+                    <input type="date" data-data="validade" value="${esc(p.datas.validade)}" class="${INPUT}">
+                </label>
+                <div class="flex items-center justify-between text-sm pt-1 border-t border-slate-100">
+                    <span class="text-slate-500">Validade em dias <span class="text-[10px] text-slate-400 font-mono">[validade_dias] · [quantidade]</span></span>
+                    <span class="font-bold text-slate-900">${vazio(p.vars.validade_dias) ? '—' : esc(p.vars.validade_dias) + ' dias'}</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-500">Data por extenso <span class="text-[10px] text-slate-400 font-mono">[data]</span></span>
+                    <span class="font-medium text-slate-900">${esc(p.vars.data || '—')}</span>
+                </div>
+            </div>
+        </section>`;
     const destaque = (rot, val, sub) => `
         <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
             <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${esc(rot)}</p>
@@ -164,12 +192,7 @@ function desenhar(tela, p) {
             ['Inversor', '[inversor_descricao]', v.inversor_descricao],
             ['Quantidade de inversores', '[inversores_utilizados]', v.inversores_utilizados]
         ]),
-        secao('fa-calendar-days', 'Data e validade', [
-            ['Data de emissão', '[data_emissao]  ·  [validade]', v.data_emissao],
-            ['Válida até', '[validade_data]', v.validade_data],
-            ['Validade em dias', '[validade_dias]  ·  [quantidade]', `${v.validade_dias} dias`],
-            ['Data por extenso', '[data]', v.data]
-        ]),
+        secaoDatas(p),
         secao('fa-sack-dollar', 'Investimento', [
             ['Valor total', '[preco]', `R$ ${v.preco}`]
         ])
@@ -202,9 +225,18 @@ function ligarCliques(cont, tela) {
     if (cont.dataset.ligado) return;
     cont.dataset.ligado = '1';
     cont.addEventListener('change', ev => {
-        const sel = ev.target.closest('[data-modelo]');
         const p = ultimo[tela];
-        if (!sel || !p) return;
+        if (!p) return;
+        const campoData = ev.target.closest('[data-data]');
+        if (campoData) {
+            const emissao = cont.querySelector('[data-data="emissao"]')?.value;
+            const validade = cont.querySelector('[data-data="validade"]')?.value;
+            setDatas(p, emissao, validade);
+            desenhar(tela, p);
+            return;
+        }
+        const sel = ev.target.closest('[data-modelo]');
+        if (!sel) return;
         setModelo(p, sel.value);
         desenhar(tela, p);
     });
