@@ -6,6 +6,7 @@
 import { state } from './state.js';
 import { calcularTotalOrcamento } from './utils.js';
 import { formatarPagamentosTexto } from './pagamentos.js';
+import { exportarPropostaFv } from './propostaTemplate.js';
 
 // ============================================================
 // Converte o HTML simples gerado pelo editor de Observações
@@ -86,6 +87,8 @@ export function htmlObservacoesParaParagrafosDocx(html) {
 // que o cliente/vendedor precise editar a proposta manualmente.
 // ============================================================
 export async function exportToDOCX(id) {
+    // Proposta fotovoltaica usa o modelo DOCX com variáveis; o resto segue o fluxo antigo.
+    if (await exportarPropostaFv(id, 'docx')) return;
     const o = state.localOrcamentos.find(item => item.id === id);
     if (!o) return;
 

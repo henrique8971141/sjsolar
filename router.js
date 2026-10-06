@@ -16,6 +16,8 @@
 //   /projeto/:id/documentos      -> Documentos do projeto
 //   /projeto/:id/informacoes     -> Informações do cliente do projeto
 //   /precificacao                -> Configurações de Precificação (únicas, do sistema)
+//   /proposta/:id/previa         -> Pré-visualização da proposta (PDF)
+//   /proposta/:id/exportar       -> Conferência e exportação da proposta (DOCX/PDF)
 //
 // Qualquer outra URL cai em "Página não encontrada". Um :id que não
 // corresponda a nenhum projeto carregado cai em "Projeto não encontrado".
@@ -31,6 +33,7 @@ import { switchTab } from './ui.js';
 import { renderProjetoNaRota } from './projetos.js';
 import { carregarCatalogoFotovoltaico } from './catalogo-fotovoltaico.js';
 import { renderPrecificacaoNaRota } from './precificacao.js';
+import { renderPropostaPreviaNaRota, renderPropostaExportarNaRota } from './proposta-exportar.js';
 
 // Rotas de 1 segmento que apenas trocam de aba (mesmo padrão de switchTab
 // já usado por essas telas antes do Router existir).
@@ -66,6 +69,9 @@ function parseRota(pathname) {
         if (partes.length === 3 && SUBTAB_URL_PARA_INTERNO[partes[2]]) {
             return { nome: 'projeto', projetoId, subTabUrl: partes[2] };
         }
+    }
+    if (partes[0] === 'proposta' && partes[1] && partes.length === 3 && (partes[2] === 'previa' || partes[2] === 'exportar')) {
+        return { nome: 'proposta-' + partes[2], propostaId: decodeURIComponent(partes[1]) };
     }
     return { nome: 'nao-encontrada' };
 }
@@ -123,6 +129,16 @@ export function handleRota() {
             return;
         }
         renderProjetoNaRota(rota.projetoId, SUBTAB_URL_PARA_INTERNO[rota.subTabUrl]);
+        return;
+    }
+
+    if (rota.nome === 'proposta-previa') {
+        renderPropostaPreviaNaRota(rota.propostaId);
+        return;
+    }
+
+    if (rota.nome === 'proposta-exportar') {
+        renderPropostaExportarNaRota(rota.propostaId);
         return;
     }
 

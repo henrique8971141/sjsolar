@@ -18,6 +18,7 @@
 import { state } from './state.js';
 import { obterPrecificacaoProjeto, calcularMaoDeObra, calcularHomologacao } from './precificacao.js';
 import { calcularProposta } from './revisao-calculo.js';
+import { navegarPara } from './router.js';
 
 const TABELA = 'proposta_revisao';
 
@@ -143,6 +144,7 @@ export async function carregarRevisaoProposta(id) {
     novoAberto = false;
     statusTxt = '';
     renderTudo();
+    sincronizarValoresOrcamento();
 }
 
 function montarKit(equipamentos, kitRow) {
@@ -545,6 +547,10 @@ function finalHtml() {
             <button type="button" data-acao="finalizar" ${rev.finalizada ? 'disabled' : ''} class="w-full sm:w-auto px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wider ${rev.finalizada ? 'bg-emerald-100 text-emerald-700 cursor-default' : 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'} flex items-center justify-center gap-2">
                 <i class="fa-solid fa-flag-checkered ${rev.finalizada ? '' : 'text-amber-400'}"></i> ${rev.finalizada ? 'Proposta finalizada' : 'Finalizar proposta'}
             </button>
+            <div class="flex flex-wrap gap-2 mt-3">
+                <button type="button" data-acao="previa" class="px-4 py-2.5 rounded-lg font-bold text-xs bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2"><i class="fa-solid fa-eye"></i> Pré-visualizar</button>
+                <button type="button" data-acao="exportar" class="px-4 py-2.5 rounded-lg font-bold text-xs bg-amber-400 hover:bg-amber-500 text-slate-950 flex items-center gap-2"><i class="fa-solid fa-file-export"></i> Exportar</button>
+            </div>
         </div>`;
 }
 
@@ -596,6 +602,34 @@ function renderBlocos() {
     atualizarSaidas();
 }
 
+
+// Mantém os valores da proposta na lista de Propostas/dashboard (colunas que
+// já existem em "orcamentos": valor_equipamentos, valor_mao_de_obra e
+// valor_outros) iguais ao TOTAL desta tela. Equipamentos e mão de obra levam o
+// preço com margem; homologação, custos extras e imposto entram em "outros".
+async function sincronizarValoresOrcamento() {
+    if (!rev || !propostaId || !kit) return true;
+    const { itens, r } = calcular();
+    if (!(r.total > 0)) return true;
+    const preco = key => r.itens[itens.findIndex(i => i.key === key)]?.preco || 0;
+    const equip = preco('equipamentos');
+    const mao = preco('mao-de-obra');
+    const outros = Math.round((r.total - equip - mao) * 100) / 100;
+    const o = state.localOrcamentos?.find(x => String(x.id) === propostaId);
+    if (o && o.valor_equipamentos === equip && o.valor_mao_de_obra === mao && o.valor_outros === outros) return true;
+    try {
+        const { error } = await state.supabaseClient.from('orcamentos')
+            .update({ valor_equipamentos: equip, valor_mao_de_obra: mao, valor_outros: outros })
+            .eq('id', propostaId);
+        if (error) throw error;
+        if (o) { o.valor_equipamentos = equip; o.valor_mao_de_obra = mao; o.valor_outros = outros; }
+        return true;
+    } catch (err) {
+        console.error('Erro ao atualizar o valor da proposta:', err.message);
+        return false;
+    }
+}
+
 // ------------------------------------------------------------------
 // Persistência (grava sozinho, com pequena espera)
 // ------------------------------------------------------------------
@@ -624,6 +658,7 @@ async function salvarAgora() {
     try {
         const { error } = await state.supabaseClient.from(TABELA).upsert(linhaParaSalvar(), { onConflict: 'proposta_id' });
         if (error) throw error;
+        await sincronizarValoresOrcamento();
         statusTxt = `Salvo às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
         return true;
     } catch (err) {
@@ -784,6 +819,7 @@ function acao(nome, d) {
         agendarSalvar(); renderTudo(); return;
     }
     if (nome === 'limpar-alvo') { rev.desejado = null; agendarSalvar(); renderTudo(); return; }
+    if (nome === 'previa' || nome === 'exportar') { navegarPara(`/proposta/${propostaId}/${nome}`); return; }
     if (nome === 'finalizar') { finalizar(); return; }
     if (nome === 'reabrir') {
         rev.finalizada = false; rev.finalizada_em = null;
@@ -831,18 +867,9 @@ async function finalizar() {
         return;
     }
 
-    // valores da proposta na listagem geral/dashboard (colunas que já existem em "orcamentos")
-    const preco = key => r.itens[itens.findIndex(i => i.key === key)]?.preco || 0;
-    const equip = preco('equipamentos');
-    const mao = preco('mao-de-obra');
-    const outros = Math.round((r.total - equip - mao) * 100) / 100; // homologação + extras + imposto
-    try {
-        const { error } = await state.supabaseClient.from('orcamentos')
-            .update({ valor_equipamentos: equip, valor_mao_de_obra: mao, valor_outros: outros })
-            .eq('id', propostaId);
-        if (error) throw error;
-    } catch (err) {
-        alert('Proposta finalizada, mas não consegui atualizar os valores na lista de propostas: ' + err.message);
+    // valor da proposta na lista de Propostas e no dashboard
+    if (!(await sincronizarValoresOrcamento())) {
+        alert('Proposta finalizada, mas não consegui atualizar o valor na lista de propostas.');
     }
 
     statusTxt = 'Finalizada.';

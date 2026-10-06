@@ -6,6 +6,7 @@
 import { state } from './state.js';
 import { calcularTotalOrcamento } from './utils.js';
 import { formatarPagamentosTexto } from './pagamentos.js';
+import { exportarPropostaFv } from './propostaTemplate.js';
 
 // Reduz dinamicamente o espaçador e, se necessário, a fonte dos campos
 // de texto livre (observações / condições de pagamento) para que o
@@ -46,7 +47,9 @@ export function ajustarConteudoOrcamentoPDF() {
 }
 
 // EXPORTAÇÃO EXATA DA SUA TABELA PARA O PDF (DINÂMICA)
-export function exportToPDF(id) {
+export async function exportToPDF(id) {
+    // Proposta fotovoltaica usa o modelo DOCX convertido; o resto segue o fluxo antigo.
+    if (await exportarPropostaFv(id, 'pdf')) return;
     const o = state.localOrcamentos.find(item => item.id === id);
     if (!o) return;
 

@@ -20,6 +20,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- docx.js (geração de documentos Word no navegador) -->
     <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pizzip@3/dist/pizzip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3/build/docxtemplater.js"></script>
     <!-- FileSaver (salvar o .docx gerado) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
@@ -1520,6 +1522,14 @@
             <div id="proposta-step-revisao" class="proposta-step-panel hidden space-y-5">
                 <div id="revisao-conteudo" class="space-y-5"></div>
             </div>
+        </section>
+
+        <!-- PROPOSTA: PRÉ-VISUALIZAÇÃO e EXPORTAÇÃO (proposta-exportar.js) -->
+        <section id="proposta-previa-tab" class="tab-content hidden space-y-6">
+            <div id="proposta-previa-conteudo"></div>
+        </section>
+        <section id="proposta-exportar-tab" class="tab-content hidden space-y-6">
+            <div id="proposta-exportar-conteudo"></div>
         </section>
 
         <!-- MODAL: NOVA/EDITAR UNIDADE CONSUMIDORA (etapa 2.3.3 da Proposta) -->
