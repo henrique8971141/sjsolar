@@ -34,6 +34,7 @@ function gravarLocal(chave, valor) {
 }
 
 const chaveDatas = id => `sjsolar:datas:${id}`;
+export function datasSalvas(id) { return lerDatas(id); }
 function lerDatas(id) {
     try { return JSON.parse(lerLocal(chaveDatas(id)) || '{}') || {}; } catch (e) { return {}; }
 }
@@ -112,7 +113,7 @@ export function montarVariaveis(o, equipamentos, kit, datas = {}) {
 
 // ------------------------------------------------------------
 // Carrega e confere uma proposta. Devolve null se não achar.
-// { o, vars, equipamentos, kit, finalizada, ehFv, modelo, erros[], avisos[] }
+// { o, vars, equipamentos, kit, ehFv, datas, modelo, erros[], avisos[] }
 // erros  = impedem exportar | avisos = só alertam
 // ------------------------------------------------------------
 export async function prepararProposta(id) {
@@ -120,17 +121,15 @@ export async function prepararProposta(id) {
     if (!o) return null;
 
     const db = state.supabaseClient;
-    const [eq, kitRes, rev] = await Promise.all([
+    const [eq, kitRes] = await Promise.all([
         db.from('proposta_equipamentos').select('*').eq('proposta_id', o.id).order('ordem', { ascending: true }),
-        db.from('proposta_kit_gerador').select('*').eq('proposta_id', o.id).maybeSingle(),
-        db.from('proposta_revisao').select('finalizada').eq('proposta_id', o.id).maybeSingle()
+        db.from('proposta_kit_gerador').select('*').eq('proposta_id', o.id).maybeSingle()
     ]);
     if (eq.error) throw eq.error;
     if (kitRes.error) throw kitRes.error;
 
     const equipamentos = eq.data || [];
     const kit = kitRes.data || null;
-    const finalizada = !rev.error && !!rev.data?.finalizada; // se a tabela não existir, ignora
     const salvas = lerDatas(o.id);
     const datas = {
         emissao: salvas.emissao || o.data_emissao || '',
@@ -147,13 +146,12 @@ export async function prepararProposta(id) {
         if (!equipamentos.some(e => e.tipo === 'INVERSOR' || e.tipo === 'MICROINVERSOR')) avisos.push('Nenhum inversor ou microinversor no Kit Gerador.');
         if (!(Number(kit?.kit_geracao_kwh) > 0)) avisos.push('A geração estimada (kWh/mês) está vazia.');
         if (!(calcularTotalOrcamento(o).total > 0)) avisos.push('O valor da proposta está zerado.');
-        if (!finalizada) avisos.push('A proposta ainda não foi finalizada: o valor pode estar desatualizado.');
         const distintos = tipo => new Set(equipamentos.filter(e => tipo.includes(e.tipo)).map(e => String(e.produto_id ?? e.modelo))).size;
         if (distintos(['MODULO']) > 1) avisos.push('Há mais de um modelo de módulo. O modelo mostra só o primeiro (a quantidade é a soma).');
         if (distintos(['INVERSOR', 'MICROINVERSOR']) > 1) avisos.push('Há mais de um modelo de inversor. O modelo mostra só o primeiro (a quantidade é a soma).');
     }
 
-    const p = { o, vars, equipamentos, kit, finalizada, ehFv, errosBase: erros, erros: [], avisos, datas, modelo: modeloSalvo(o.id) };
+    const p = { o, vars, equipamentos, kit, ehFv, errosBase: erros, erros: [], avisos, datas, modelo: modeloSalvo(o.id) };
     reconferir(p);
     return p;
 }

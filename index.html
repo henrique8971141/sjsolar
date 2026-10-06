@@ -1167,7 +1167,12 @@
                 <div class="pstep-line"></div>
                 <button type="button" data-proposta-step="revisao" data-state="todo" onclick="switchPropostaStep('revisao')" class="pstep">
                     <span class="pstep-circle">5</span>
-                    <span class="pstep-label">Revisão e Finalização</span>
+                    <span class="pstep-label">Revisão</span>
+                </button>
+                <div class="pstep-line"></div>
+                <button type="button" data-proposta-step="arquivos" data-state="todo" onclick="switchPropostaStep('arquivos')" class="pstep">
+                    <span class="pstep-circle">6</span>
+                    <span class="pstep-label">Arquivos</span>
                 </button>
             </div>
 
@@ -1517,10 +1522,16 @@
                 </div>
             </div>
 
-            <!-- Revisão + Finalização (2.3.6): editor comercial da proposta.
+            <!-- Revisão (etapa 5): editor comercial da proposta.
                  O conteúdo é desenhado por revisao-proposta.js. -->
             <div id="proposta-step-revisao" class="proposta-step-panel hidden space-y-5">
                 <div id="revisao-conteudo" class="space-y-5"></div>
+            </div>
+
+            <!-- Arquivos (etapa 6): data, pré-visualização do PDF, PDF/DOCX.
+                 O conteúdo é desenhado por arquivos-proposta.js. -->
+            <div id="proposta-step-arquivos" class="proposta-step-panel hidden space-y-5">
+                <div id="arquivos-conteudo"></div>
             </div>
         </section>
 

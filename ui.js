@@ -5,12 +5,19 @@
 import { state } from './state.js';
 
 export function switchTab(tabId) {
+    const alvo = document.getElementById(tabId);
+    if (!alvo) {
+        // Seção inexistente no index.html (ex.: arquivo desatualizado): não esconde a tela atual.
+        console.error(`switchTab: não existe #${tabId} no index.html`);
+        return;
+    }
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById(tabId).classList.remove('hidden');
+    alvo.classList.remove('hidden');
 
     const tabs = ['dashboard-tab', 'orcamentos-tab', 'clientes-tab', 'produtos-tab', 'fotovoltaico-tab', 'projetos-tab'];
     tabs.forEach(t => {
         const btn = document.getElementById(`nav-${t}`);
+        if (!btn) return;
         if (t === tabId) {
             btn.className = "sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold bg-amber-400 text-slate-950";
         } else {

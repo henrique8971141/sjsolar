@@ -1,16 +1,18 @@
 // revisao-proposta.js
-// ETAPA 2.3.6 — REVISÃO + FINALIZAÇÃO DA PROPOSTA FOTOVOLTAICA.
+// ETAPA 5 — REVISÃO DA PROPOSTA FOTOVOLTAICA.
 // (Junta as antigas etapas 2.3.6 e 2.3.7. Não existe etapa separada de
-// Condições Comerciais ou Pagamento.)
+// Condições Comerciais ou Pagamento. Não há mais botão "Finalizar": os
+// valores vão para a lista de propostas a cada salvamento automático, e a
+// etapa 6 (Arquivos) gera a pré-visualização e os arquivos.)
 //
 // É um EDITOR COMERCIAL: mostra o Kit Gerador, os custos, permite alterar
 // custo e margem de cada item, adicionar custos, ver com/sem margem, fechar o
-// total num valor desejado e finalizar a proposta.
+// total num valor desejado.
 //
 // Independente do Orçamento Avulso. Só LÊ os dados das etapas anteriores
 // (orcamentos, unidades_consumidoras, proposta_equipamentos,
 // proposta_kit_gerador) e a Configuração de Precificação; só GRAVA em
-// proposta_revisao (sql/010) e, ao finalizar, nos três campos de valor da
+// proposta_revisao (sql/010) e, a cada salvamento, nos três campos de valor da
 // própria linha da proposta em "orcamentos".
 //
 // Contas: revisao-calculo.js. Nenhum valor comercial fica fixo na tela.
@@ -18,7 +20,6 @@
 import { state } from './state.js';
 import { obterPrecificacaoProjeto, calcularMaoDeObra, calcularHomologacao } from './precificacao.js';
 import { calcularProposta } from './revisao-calculo.js';
-import { navegarPara } from './router.js';
 
 const TABELA = 'proposta_revisao';
 
@@ -308,16 +309,10 @@ function renderTudo() {
 
 function avisosHtml() {
     const out = [];
-    if (!tabelaOk) out.push('A tabela proposta_revisao ainda não existe no Supabase. Rode o SQL 010 e recarregue. Enquanto isso você vê o cálculo, mas nada é gravado e não dá para finalizar.');
+    if (!tabelaOk) out.push('A tabela proposta_revisao ainda não existe no Supabase. Rode o SQL 010 e recarregue. Enquanto isso você vê o cálculo, mas nada é gravado.');
     if (!cfg) out.push('Não foi possível ler a Configuração de Precificação; usando os padrões (imposto 6%, margem 30%).');
     const avisos = out.map(t => `<div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm p-3 rounded-lg">${esc(t)}</div>`).join('');
-    const fin = rev.finalizada ? `
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm p-4 rounded-xl flex items-center justify-between gap-3 flex-wrap">
-            <div class="flex items-center gap-2 font-bold"><i class="fa-solid fa-circle-check"></i>
-                Proposta FINALIZADA${rev.finalizada_em ? ' em ' + new Date(rev.finalizada_em).toLocaleString('pt-BR') : ''}.</div>
-            <button type="button" data-acao="reabrir" class="px-3.5 py-2 rounded-lg font-bold text-xs bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100">Reabrir para edição</button>
-        </div>` : '';
-    return fin + avisos;
+    return avisos;
 }
 
 // ----- 1. Resumo do Kit Gerador -----
@@ -513,7 +508,7 @@ function totaisHtml() {
         </div>`;
 }
 
-// ----- 5. Finalização -----
+// ----- 5. Conferência (só informa; não bloqueia nada) -----
 function checklist() {
     const { itens, r } = calcular();
     const p = proposta || {};
@@ -539,18 +534,11 @@ function finalHtml() {
     const falhas = itens.filter(i => !i.ok);
     return `
         <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Conferência antes de finalizar</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Conferência da proposta</p>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5 mb-4">
                 ${itens.map(i => `<div class="flex items-center gap-2 text-sm ${i.ok ? 'text-slate-600' : 'text-red-600 font-bold'}"><i class="fa-solid ${i.ok ? 'fa-circle-check text-emerald-500' : 'fa-circle-xmark'}"></i>${esc(i.rot)}</div>`).join('')}
             </div>
             ${falhas.length ? `<ul class="text-xs text-red-600 mb-4 list-disc pl-5 space-y-0.5">${falhas.map(f => `<li>${esc(f.erro)}</li>`).join('')}</ul>` : ''}
-            <button type="button" data-acao="finalizar" ${rev.finalizada ? 'disabled' : ''} class="w-full sm:w-auto px-8 py-3 rounded-lg font-black text-sm uppercase tracking-wider ${rev.finalizada ? 'bg-emerald-100 text-emerald-700 cursor-default' : 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'} flex items-center justify-center gap-2">
-                <i class="fa-solid fa-flag-checkered ${rev.finalizada ? '' : 'text-amber-400'}"></i> ${rev.finalizada ? 'Proposta finalizada' : 'Finalizar proposta'}
-            </button>
-            <div class="flex flex-wrap gap-2 mt-3">
-                <button type="button" data-acao="previa" class="px-4 py-2.5 rounded-lg font-bold text-xs bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2"><i class="fa-solid fa-eye"></i> Pré-visualizar</button>
-                <button type="button" data-acao="exportar" class="px-4 py-2.5 rounded-lg font-bold text-xs bg-amber-400 hover:bg-amber-500 text-slate-950 flex items-center gap-2"><i class="fa-solid fa-file-export"></i> Exportar</button>
-            </div>
         </div>`;
 }
 
@@ -651,6 +639,15 @@ function linhaParaSalvar() {
         finalizada_em: rev.finalizada_em,
         updated_at: new Date().toISOString()
     };
+}
+
+// Grava agora o que estiver pendente e atualiza o valor na lista de propostas.
+// A etapa Arquivos chama isto antes de montar o documento, para o preço sair certo.
+export async function sincronizarRevisaoAgora() {
+    clearTimeout(timerSalvar);
+    if (!rev || !propostaId) return true;
+    if (!tabelaOk) return sincronizarValoresOrcamento();
+    return salvarAgora();
 }
 
 async function salvarAgora() {
@@ -819,61 +816,6 @@ function acao(nome, d) {
         agendarSalvar(); renderTudo(); return;
     }
     if (nome === 'limpar-alvo') { rev.desejado = null; agendarSalvar(); renderTudo(); return; }
-    if (nome === 'previa' || nome === 'exportar') { navegarPara(`/proposta/${propostaId}/${nome}`); return; }
-    if (nome === 'finalizar') { finalizar(); return; }
-    if (nome === 'reabrir') {
-        rev.finalizada = false; rev.finalizada_em = null;
-        agendarSalvar(); renderTudo();
-    }
-}
-
-// ------------------------------------------------------------------
-// Finalizar
-// ------------------------------------------------------------------
-async function finalizar() {
-    if (!tabelaOk) { alert('Rode o SQL 010 no Supabase antes de finalizar.'); return; }
-    const falhas = checklist().filter(i => !i.ok);
-    if (falhas.length) {
-        alert('Não dá para finalizar ainda:\n\n• ' + falhas.map(f => f.erro).join('\n• '));
-        return;
-    }
-    if (!confirm('Finalizar esta proposta?')) return;
-
-    const { itens, r } = calcular();
-    const retrato = {
-        gerado_em: new Date().toISOString(),
-        itens: itens.map((it, i) => ({
-            key: it.key, descricao: it.descricao, custo: r.itens[i].custo, margem: r.itens[i].margem,
-            margem_pct: Math.round(r.itens[i].pct * 100) / 100, preco: r.itens[i].preco
-        })),
-        custo_total: r.custoTotal, margem_total: r.margemTotal, subtotal: r.precoSemImposto,
-        imposto: r.imposto, total: r.total,
-        valor_desejado: rev.desejado,
-        margem_padrao: margemPadrao(),
-        kit: { kwp: kit.kwp, modulos: kit.qtdModulos, inversores: kit.qtdInversores, valor_kit: kit.valorKit, geracao_kwh_mes: kit.geracao, topologia: kit.topologia },
-        configuracao: cfg ? clone(cfg) : null
-    };
-
-    rev.finalizada = true;
-    rev.finalizada_em = retrato.gerado_em;
-    clearTimeout(timerSalvar);
-    try {
-        const { error } = await state.supabaseClient.from(TABELA)
-            .upsert({ ...linhaParaSalvar(), calculo_final: retrato }, { onConflict: 'proposta_id' });
-        if (error) throw error;
-    } catch (err) {
-        rev.finalizada = false; rev.finalizada_em = null;
-        alert('Erro ao finalizar: ' + err.message);
-        return;
-    }
-
-    // valor da proposta na lista de Propostas e no dashboard
-    if (!(await sincronizarValoresOrcamento())) {
-        alert('Proposta finalizada, mas não consegui atualizar o valor na lista de propostas.');
-    }
-
-    statusTxt = 'Finalizada.';
-    renderTudo();
 }
 
 // ------------------------------------------------------------------

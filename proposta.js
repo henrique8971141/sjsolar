@@ -12,8 +12,9 @@
 // existentes), mas a TELA de edição é inteiramente própria.
 //
 // Etapas implementadas até agora: Cliente e Serviço, Localização,
-// Unidades Consumidoras (2.3.3), Kit Gerador / Equipamentos (2.3.4) e
-// Revisão + Finalização (2.3.6, que junta as antigas 2.3.6 e 2.3.7).
+// Unidades Consumidoras (2.3.3), Kit Gerador / Equipamentos (2.3.4),
+// Revisão (5, que junta as antigas 2.3.6 e 2.3.7) e Arquivos (6: data,
+// pré-visualização do PDF e download de PDF/DOCX).
 
 import { state } from './state.js';
 import { syncFromSupabase } from './supabase.js';
@@ -23,8 +24,9 @@ import { irParaSubTabProjeto } from './router.js';
 import { carregarUnidadesConsumidoras } from './unidades-consumidoras.js';
 import { carregarKitGerador } from './kit-gerador.js';
 import { carregarRevisaoProposta } from './revisao-proposta.js';
+import { carregarArquivosProposta } from './arquivos-proposta.js';
 
-const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador', 'revisao'];
+const STEPS = ['cliente-servico', 'localizacao', 'unidades-consumidoras', 'kit-gerador', 'revisao', 'arquivos'];
 
 let passoAtualProposta = 'cliente-servico';
 let listenersLocalizacaoLigados = false;
@@ -76,7 +78,7 @@ export async function switchPropostaStep(step) {
         await carregarKitGerador(document.getElementById('proposta-id').value);
     }
 
-    // Revisão + Finalização (2.3.6): lê tudo o que já foi gravado nas etapas
+    // Revisão (5): lê tudo o que já foi gravado nas etapas
     // anteriores, então também precisa da Proposta já gravada.
     if (step === 'revisao') {
         const ok = await salvarDadosBaseProposta();
@@ -85,6 +87,19 @@ export async function switchPropostaStep(step) {
             return;
         }
         await carregarRevisaoProposta(document.getElementById('proposta-id').value);
+    }
+
+    // Arquivos (6): data + pré-visualização do PDF + download. Usa a revisão
+    // (valor final) e a proposta já gravada.
+    if (step === 'arquivos') {
+        const ok = await salvarDadosBaseProposta();
+        if (!ok) {
+            switchPropostaStep('cliente-servico');
+            return;
+        }
+        const id = document.getElementById('proposta-id').value;
+        await carregarRevisaoProposta(id);
+        await carregarArquivosProposta(id);
     }
 }
 
