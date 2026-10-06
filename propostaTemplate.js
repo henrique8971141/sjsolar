@@ -13,20 +13,29 @@ import { state } from './state.js';
 import { calcularTotalOrcamento } from './utils.js';
 
 // ============================================================
-// >>> AJUSTE AQUI: cidade (minúscula, sem acento) -> arquivo em /templates/
+// >>> AJUSTE AQUI: os modelos disponíveis (arquivos em /templates/)
+// id: curto e único | nome: o que aparece no seletor
 // ============================================================
-const MODELOS = {
-    'cidade a': 'modelo-cidade-a.docx',
-    'cidade b': 'modelo-cidade-b.docx'
-};
+export const MODELOS = [
+    { id: 'modelo-a', nome: 'Modelo A', arquivo: 'modelo-a.docx' },
+    { id: 'modelo-b', nome: 'Modelo B', arquivo: 'modelo-b.docx' }
+];
 
-const normalizar = s =>
-    String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+// A escolha do modelo fica salva neste navegador: por proposta, e o último
+// usado vira sugestão para as próximas.
+const chaveModelo = id => `sjsolar:modelo:${id}`;
+const CHAVE_ULTIMO = 'sjsolar:modelo:ultimo';
 
-function arquivoDoModelo(cidade) {
-    const arq = MODELOS[normalizar(cidade)];
-    if (!arq) throw new Error(`Não há modelo de proposta para a cidade "${cidade || '(vazia)'}".`);
-    return arq;
+function lerLocal(chave) {
+    try { return localStorage.getItem(chave); } catch (e) { return null; }
+}
+function gravarLocal(chave, valor) {
+    try { localStorage.setItem(chave, valor); } catch (e) { /* sem armazenamento: ignora */ }
+}
+
+function modeloSalvo(propostaId) {
+    const id = lerLocal(chaveModelo(propostaId)) || lerLocal(CHAVE_ULTIMO);
+    return MODELOS.find(m => m.id === id) || null;
 }
 
 // ------------------------------------------------------------
@@ -84,7 +93,7 @@ export function montarVariaveis(o, equipamentos, kit) {
 
 // ------------------------------------------------------------
 // Carrega e confere uma proposta. Devolve null se não achar.
-// { o, vars, equipamentos, kit, finalizada, ehFv, erros[], avisos[] }
+// { o, vars, equipamentos, kit, finalizada, ehFv, modelo, erros[], avisos[] }
 // erros  = impedem exportar | avisos = só alertam
 // ------------------------------------------------------------
 export async function prepararProposta(id) {
@@ -109,7 +118,6 @@ export async function prepararProposta(id) {
     const erros = [];
     const avisos = [];
     if (!ehFv) erros.push('Esta proposta não tem módulos no Kit Gerador.');
-    try { arquivoDoModelo(vars.cidade); } catch (e) { erros.push(e.message); }
     if (!o.data_emissao || !o.validade_proposta) erros.push('Faltam as datas de emissão e validade.');
 
     if (ehFv) {
@@ -122,16 +130,33 @@ export async function prepararProposta(id) {
         if (distintos(['INVERSOR', 'MICROINVERSOR']) > 1) avisos.push('Há mais de um modelo de inversor. O modelo mostra só o primeiro (a quantidade é a soma).');
     }
 
-    return { o, vars, equipamentos, kit, finalizada, ehFv, erros, avisos };
+    const p = { o, vars, equipamentos, kit, finalizada, ehFv, errosBase: erros, erros: [], avisos, modelo: modeloSalvo(o.id) };
+    reconferir(p);
+    return p;
+}
+
+// Erros = os da proposta + "escolha o modelo" quando nenhum está selecionado.
+export function reconferir(p) {
+    p.erros = [...p.errosBase, ...(p.modelo ? [] : ['Escolha o modelo da proposta.'])];
+}
+
+// Define o modelo (id) e lembra a escolha.
+export function setModelo(p, id) {
+    p.modelo = MODELOS.find(m => m.id === id) || null;
+    if (p.modelo) {
+        gravarLocal(chaveModelo(p.o.id), p.modelo.id);
+        gravarLocal(CHAVE_ULTIMO, p.modelo.id);
+    }
+    reconferir(p);
 }
 
 // ------------------------------------------------------------
 // DOCX
 // ------------------------------------------------------------
-export async function gerarDocxBlob(vars) {
-    const arquivo = arquivoDoModelo(vars.cidade);
-    const resp = await fetch(`/templates/${arquivo}`);
-    if (!resp.ok) throw new Error(`Modelo não encontrado em /templates/${arquivo}`);
+export async function gerarDocxBlob(p) {
+    if (!p.modelo) throw new Error('Escolha o modelo da proposta.');
+    const resp = await fetch(`/templates/${p.modelo.arquivo}`);
+    if (!resp.ok) throw new Error(`Modelo não encontrado em /templates/${p.modelo.arquivo}`);
 
     const doc = new window.docxtemplater(new window.PizZip(await resp.arrayBuffer()), {
         delimiters: { start: '[', end: ']' },
@@ -139,7 +164,7 @@ export async function gerarDocxBlob(vars) {
         linebreaks: true,
         nullGetter: () => ''
     });
-    doc.render(vars);
+    doc.render(p.vars);
 
     return doc.getZip().generate({
         type: 'blob',
@@ -153,9 +178,11 @@ export async function gerarDocxBlob(vars) {
 const cachePdf = new Map();      // id -> { chave, blob, url }
 const emAndamento = new Map();   // id -> { chave, promessa }
 
+const chaveCache = p => JSON.stringify([p.vars, p.modelo?.id]);
+
 export function pdfEmCache(p) {
     const c = cachePdf.get(String(p.o.id));
-    return c && c.chave === JSON.stringify(p.vars) ? c : null;
+    return c && c.chave === chaveCache(p) ? c : null;
 }
 
 export function obterPdf(p) {
@@ -163,12 +190,12 @@ export function obterPdf(p) {
     if (hit) return Promise.resolve(hit);
 
     const id = String(p.o.id);
-    const chave = JSON.stringify(p.vars);
+    const chave = chaveCache(p);
     const rodando = emAndamento.get(id);
     if (rodando && rodando.chave === chave) return rodando.promessa;
 
     const promessa = (async () => {
-        const docx = await gerarDocxBlob(p.vars);
+        const docx = await gerarDocxBlob(p);
         const r = await fetch('/api/docx-para-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/octet-stream' },
@@ -196,7 +223,7 @@ export async function baixar(p, formato) {
     if (formato === 'pdf') {
         saveAs((await obterPdf(p)).blob, `${nomeBase(p.o)}.pdf`);
     } else {
-        saveAs(await gerarDocxBlob(p.vars), `${nomeBase(p.o)}.docx`);
+        saveAs(await gerarDocxBlob(p), `${nomeBase(p.o)}.docx`);
     }
 }
 
@@ -216,6 +243,11 @@ export async function exportarPropostaFv(id, formato) {
     }
     if (!p || !p.ehFv) return false;
 
+    if (!p.modelo) {
+        alert('Escolha o modelo da proposta na tela Exportar.');
+        if (window.navegarPara) window.navegarPara(`/proposta/${p.o.id}/exportar`);
+        return true;
+    }
     if (p.erros.length) {
         alert('Não dá para exportar ainda:\n\n• ' + p.erros.join('\n• '));
         return true;

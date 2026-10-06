@@ -9,7 +9,7 @@
 import { state } from './state.js';
 import { switchTab } from './ui.js';
 import { navegarPara } from './router.js';
-import { prepararProposta, pdfEmCache, obterPdf, baixar } from './propostaTemplate.js';
+import { MODELOS, setModelo, prepararProposta, pdfEmCache, obterPdf, baixar } from './propostaTemplate.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const el = id => document.getElementById(id);
@@ -72,7 +72,13 @@ function cabecalho(p, titulo) {
                     <h2 class="text-lg font-bold text-slate-900">${esc(titulo)}</h2>
                     <p class="text-sm text-slate-500 mt-0.5">Proposta nº ${esc(p.o.numero_orcamento || '-')} — ${esc(p.vars.cliente_nome || 'sem cliente')}</p>
                 </div>
-                <span class="inline-block px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold uppercase tracking-wider">${esc(p.vars.cidade || 'sem cidade')}</span>
+                <label class="flex items-center gap-2">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Modelo</span>
+                    <select data-modelo class="rounded-lg border ${p.modelo ? 'border-slate-300' : 'border-red-400'} bg-white px-3 py-2 text-sm font-bold text-slate-800">
+                        <option value="">Selecione…</option>
+                        ${MODELOS.map(m => `<option value="${esc(m.id)}" ${p.modelo?.id === m.id ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}
+                    </select>
+                </label>
             </div>
         </div>`;
 }
@@ -120,7 +126,7 @@ function desenhar(tela, p) {
     const v = p.vars;
     const linhas = [
         ['Cliente', '[cliente_nome]', v.cliente_nome],
-        ['Cidade (define o modelo)', '[cidade]', v.cidade],
+        ['Cidade (aparece no documento)', '[cidade]', v.cidade],
         ['Potência do sistema', '[potencia_sistema]', `${v.potencia_sistema} kWp`],
         ['Geração estimada', '[geracao_mensal]', `${v.geracao_mensal} kWh/mês`],
         ['Módulo', '[modulo_descricao]', v.modulo_descricao],
@@ -163,6 +169,13 @@ function desenhar(tela, p) {
 function ligarCliques(cont, tela) {
     if (cont.dataset.ligado) return;
     cont.dataset.ligado = '1';
+    cont.addEventListener('change', ev => {
+        const sel = ev.target.closest('[data-modelo]');
+        const p = ultimo[tela];
+        if (!sel || !p) return;
+        setModelo(p, sel.value);
+        desenhar(tela, p);
+    });
     cont.addEventListener('click', async ev => {
         const b = ev.target.closest('[data-acao]');
         if (!b || b.disabled) return;
