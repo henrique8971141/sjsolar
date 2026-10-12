@@ -12,6 +12,7 @@ import { switchTab } from './ui.js';
 import { editCliente } from './clientes.js';
 import { deleteProjeto, voltarParaProjetos } from './projetos.js';
 import { abrirNovaProposta } from './proposta.js';
+import { renderDocumentosDoProjeto } from './contrato.js';
 
 // ------------------------------------------------------------------
 // Cabeçalho: qual projeto está aberto
@@ -169,10 +170,8 @@ export function criarPropostaDoProjetoAtual() {
 export function renderProjetoSubDocumentos() {
     const container = document.getElementById('projeto-sub-documentos');
     if (!container) return;
-
-    // Etapa 2: ainda não existe cadastro de documentos — estrutura preparada
-    // para a Etapa 3/5, sempre em estado vazio por enquanto.
-    container.innerHTML = estadoVazioHtml('Nenhum documento criado', 'criarDocumentoDoProjetoAtual()');
+    // Card "Contrato de Serviço e Instalação" + lista de documentos e anexos.
+    renderDocumentosDoProjeto(container);
 }
 
 // Handler preparado para a Etapa 3/5 (criação de documentos a partir de
