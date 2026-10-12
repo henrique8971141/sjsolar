@@ -150,15 +150,10 @@ async function salvarDocumento({ blob, nome, tipo, formato, propostaId = null })
 }
 
 async function baixarDocumento(doc) {
-    const { data, error } = await state.supabaseClient.storage.from(BUCKET)
-        .createSignedUrl(doc.arquivo_path, 60, { download: doc.nome });
+    // Baixa o arquivo para a memória e salva direto (sem abrir a página de pré-visualização).
+    const { data, error } = await state.supabaseClient.storage.from(BUCKET).download(doc.arquivo_path);
     if (error) throw error;
-    const a = document.createElement('a');
-    a.href = data.signedUrl;
-    a.download = doc.nome;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    saveAs(data, doc.nome);
 }
 
 async function excluirDocumento(doc) {
