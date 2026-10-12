@@ -231,7 +231,10 @@ export async function gerarDocxBlob(p) {
 
     return doc.getZip().generate({
         type: 'blob',
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        // Sem isso o ZIP sai SEM compressão (~5,6 MB) e estoura o limite de 4,5 MB
+        // da Vercel em /api/docx-para-pdf (FUNCTION_PAYLOAD_TOO_LARGE).
+        compression: 'DEFLATE'
     });
 }
 
